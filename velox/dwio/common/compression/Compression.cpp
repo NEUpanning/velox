@@ -26,6 +26,10 @@
 #include <zstd.h>
 #include <zstd_errors.h>
 
+#ifdef VELOX_ENABLE_ISAL
+#include <igzip_lib.h>
+#endif
+
 namespace facebook::velox::dwio::common::compression {
 
 using dwio::common::encryption::Decrypter;
@@ -125,15 +129,23 @@ class ZlibDecompressor : public Decompressor {
 
  protected:
   void reset() {
+#ifdef VELOX_ENABLE_ISAL
+    isal_inflate_reset(&zstream_);
+#else
     auto result = inflateReset(&zstream_);
     DWIO_ENSURE_EQ(
         result,
         Z_OK,
         "Bad inflateReset in ZlibDecompressor::reset. error: ",
         result);
+#endif
   }
 
+#ifdef VELOX_ENABLE_ISAL
+  inflate_state zstream_;
+#else
   z_stream zstream_;
+#endif
 };
 
 ZlibDecompressor::ZlibDecompressor(
@@ -142,6 +154,10 @@ ZlibDecompressor::ZlibDecompressor(
     const std::string& streamDebugInfo,
     bool isGzip)
     : Decompressor{blockSize, streamDebugInfo} {
+#ifdef VELOX_ENABLE_ISAL
+  memset(&zstream_, 0, sizeof(zstream_));
+  isal_inflate_init(&zstream_);
+#else
   zstream_.next_in = Z_NULL;
   zstream_.avail_in = 0;
   zstream_.zalloc = Z_NULL;
@@ -162,9 +178,11 @@ ZlibDecompressor::ZlibDecompressor(
       result,
       " Info: ",
       streamDebugInfo_);
+#endif
 }
 
 ZlibDecompressor::~ZlibDecompressor() {
+#ifndef VELOX_ENABLE_ISAL
   auto result = inflateEnd(&zstream_);
   DWIO_WARN_IF(
       result != Z_OK,
@@ -172,6 +190,7 @@ ZlibDecompressor::~ZlibDecompressor() {
       result,
       " Info: ",
       streamDebugInfo_);
+#endif
 }
 
 uint64_t ZlibDecompressor::decompress(
@@ -184,12 +203,21 @@ uint64_t ZlibDecompressor::decompress(
   zstream_.avail_in = folly::to<uInt>(srcLength);
   zstream_.next_out = reinterpret_cast<Bytef*>(const_cast<char*>(dest));
   zstream_.avail_out = folly::to<uInt>(destLength);
+#ifdef VELOX_ENABLE_ISAL
+  auto result = isal_inflate_stateless(&zstream_);
+  DWIO_ENSURE_EQ(
+      result,
+      ISAL_END_INPUT,
+      "Error in ZlibDecompressor::decompress. error: ",
+      result);
+#else
   auto result = inflate(&zstream_, Z_FINISH);
   DWIO_ENSURE_EQ(
       result,
       Z_STREAM_END,
       "Error in ZlibDecompressor::decompress. error: ",
       result);
+#endif
   return destLength - zstream_.avail_out;
 }
 
@@ -566,7 +594,29 @@ bool ZlibDecompressionStream::readOrSkip(const void** data, int32_t* size) {
     zstream_.next_out =
         reinterpret_cast<Bytef*>(const_cast<char*>(outputBufferPtr_));
     zstream_.avail_out = folly::to<uInt>(blockSize_);
+
     int32_t result;
+#ifdef VELOX_ENABLE_ISAL
+    result = ISAL_DECOMP_OK;
+    while (ISAL_DECOMP_OK == result && remainingLength_ > 0) {
+      result = isal_inflate(&zstream_);
+      if (availSize == remainingLength_) {
+        break;
+      }
+      remainingLength_ -= availSize;
+      inputBufferPtr_ += availSize;
+      readBuffer(true);
+      zstream_.next_in =
+          reinterpret_cast<Bytef*>(const_cast<char*>(inputBufferPtr_));
+      availSize = std::min(
+          static_cast<size_t>(inputBufferPtrEnd_ - inputBufferPtr_),
+          remainingLength_);
+      zstream_.avail_in = static_cast<uInt>(availSize);
+    }
+    if (ISAL_DECOMP_OK != result || zstream_.avail_in > 0) {
+      DWIO_RAISE("Error in ZlibDecompressionStream::readOrSkip");
+    }
+#else
     do {
       result = inflate(
           &zstream_, availSize == remainingLength_ ? Z_FINISH : Z_SYNC_FLUSH);
@@ -594,6 +644,7 @@ bool ZlibDecompressionStream::readOrSkip(const void** data, int32_t* size) {
               ZlibDecompressor::streamDebugInfo_);
       }
     } while (result != Z_STREAM_END);
+#endif
     *size = static_cast<int32_t>(blockSize_ - zstream_.avail_out);
     if (data) {
       *data = outputBufferPtr_;

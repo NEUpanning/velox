@@ -104,6 +104,7 @@ option(VELOX_ENABLE_S3 "Build S3 Connector" OFF)
 option(VELOX_ENABLE_GCS "Build GCS Connector" OFF)
 option(VELOX_ENABLE_ABFS "Build Abfs Connector" OFF)
 option(VELOX_ENABLE_HDFS "Build Hdfs Connector" OFF)
+option(VELOX_ENABLE_ISAL "Enable Intel ISAL optimizations" ON)
 option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(VELOX_ENABLE_ARROW "Enable Arrow support" OFF)
 option(VELOX_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
@@ -244,6 +245,15 @@ if(VELOX_ENABLE_HDFS)
       HINTS "${CMAKE_SOURCE_DIR}/hawq/depends/libhdfs3/_build/src/" REQUIRED)
   endif()
   add_definitions(-DVELOX_ENABLE_HDFS3)
+endif()
+
+if(VELOX_ENABLE_ISAL)
+  INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/third_party/isa-l/include")
+  find_library(
+    LIBISAL
+    NAMES libisal.so.2
+    HINTS "${CMAKE_SOURCE_DIR}/third_party/isa-l/lib" REQUIRED)
+  add_definitions(-DVELOX_ENABLE_ISAL)
 endif()
 
 if(VELOX_ENABLE_PARQUET)

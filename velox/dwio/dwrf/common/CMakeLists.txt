@@ -40,3 +40,7 @@ target_link_libraries(
   velox_caching
   Snappy::snappy
   zstd::zstd)
+
+if(VELOX_ENABLE_ISAL)
+  target_link_libraries(velox_dwio_dwrf_common ${LIBISAL})
+endif()
