@@ -706,16 +706,11 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
         executor,
         readerOpts);
   }
-  return std::make_unique<dwio::common::DirectBufferedInput>(
+  return std::make_unique<dwio::common::BufferedInput>(
       fileHandle.file,
+      readerOpts.memoryPool(),
       dwio::common::MetricsLog::voidLog(),
-      fileHandle.uuid.id(),
-      Connector::getTracker(
-          connectorQueryCtx->scanId(), readerOpts.loadQuantum()),
-      fileHandle.groupId.id(),
-      std::move(ioStats),
-      executor,
-      readerOpts);
+      ioStats.get());
 }
 
 namespace {
