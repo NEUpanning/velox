@@ -9,6 +9,7 @@ SCRIPTDIR=$(dirname "$0")
 FROM_PATH=${SCRIPTDIR}
 DST_PATH=$1
 
+cp -rv ${FROM_PATH}/include/* ${DST_PATH}/include/
 cp -v ${FROM_PATH}/lib/* ${DST_PATH}/
 
 cd $DST_PATH

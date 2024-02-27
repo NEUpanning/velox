@@ -251,6 +251,13 @@ void hdfsBuilderSetKerbTicketCachePath(struct hdfsBuilder * bld,
 void hdfsBuilderSetToken(struct hdfsBuilder * bld, const char * token);
 
 /**
+ * Setup Token for Sentry Access Control
+ *
+ * @param authToken The token string for Sentry Access Control
+ */
+void hdfsSetAuthorityToken(const char* authToken);
+
+/**
  * Free an HDFS builder.
  *
  * It is normally not necessary to call this function since
