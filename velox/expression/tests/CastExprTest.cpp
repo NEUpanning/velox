@@ -2062,6 +2062,13 @@ TEST_F(CastExprTest, castInTry) {
       ARRAY(ARRAY(VARCHAR())), ARRAY(ARRAY(BIGINT())), nested, nestedExpected);
 }
 
+TEST_F(CastExprTest, myTestDouble2Decimal) {
+  testComplexCast(
+      "c0",
+      makeFlatVector<double>({0.0, 0.575}),
+      makeFlatVector<int128_t>({0, 58}, DECIMAL(20, 2)));
+}
+
 TEST_F(CastExprTest, doubleToDecimal) {
   // Double to short decimal.
   const auto input = makeFlatVector<double>(

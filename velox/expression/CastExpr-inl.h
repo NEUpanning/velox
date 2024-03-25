@@ -518,6 +518,45 @@ void CastExpr::applyVarcharToDecimalCastKernel(
   });
 }
 
+// Helper function to be compatible with macos whose `std::abs` does not
+// support int128_t.
+static int128_t absInt128(int128_t __x) {
+#ifdef __APPLE__
+  int128_t __sgn = __x >> (16 * CHAR_BIT - 1);
+  return (__x ^ __sgn) - __sgn;
+#else
+  return std::abs(__x);
+#endif
+}
+
+inline static double toDoubleValue(int128_t value, uint8_t scale) {
+  int128_t new_value;
+  int32_t sig;
+  if (value > 0) {
+    new_value = value;
+    sig = 1;
+  } else if (value < 0) {
+    new_value = absInt128(value);
+    sig = -1;
+  } else {
+    new_value = value;
+    sig = 0;
+  }
+
+  int64_t new_high;
+  uint64_t new_low;
+
+  int128_t orignal_value = new_value;
+  new_high = new_value >> 64;
+  new_low = (uint64_t)orignal_value;
+
+  double unscaled = static_cast<double>(new_low) +
+      std::ldexp(static_cast<double>(new_high), 64);
+
+  // scale double.
+  return (unscaled * sig) / DecimalUtil::kPowersOfTen[scale];
+}
+
 template <typename FromNativeType, TypeKind ToKind>
 VectorPtr CastExpr::applyDecimalToFloatCast(
     const SelectivityVector& rows,
@@ -535,12 +574,14 @@ VectorPtr CastExpr::applyDecimalToFloatCast(
   const auto simpleInput = input.as<SimpleVector<FromNativeType>>();
   const auto scaleFactor = DecimalUtil::kPowersOfTen[precisionScale.second];
   applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
-    const auto output =
-        util::Converter<ToKind>::tryCast(simpleInput->valueAt(row))
-            .thenOrThrow(folly::identity, [&](const Status& status) {
-              VELOX_USER_FAIL("{}", status.message());
-            });
-    resultBuffer[row] = output / scaleFactor;
+    // const auto output =
+    //     util::Converter<ToKind>::tryCast(simpleInput->valueAt(row))
+    //         .thenOrThrow(folly::identity, [&](const Status& status) {
+    //           VELOX_USER_FAIL("{}", status.message());
+    //         });
+    // resultBuffer[row] = output / scaleFactor;
+    resultBuffer[row] =
+        toDoubleValue(simpleInput->valueAt(row), precisionScale.second);
   });
   return result;
 }
