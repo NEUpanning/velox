@@ -301,7 +301,7 @@ struct Timestamp {
   // Example: Timestamp ts{0, 0};
   // ts.Timezone("America/Los_Angeles");
   // ts.toString() returns December 31, 1969 16:00:00
-  void toTimezone(const date::time_zone& zone);
+  void toTimezone(const date::time_zone& zone, bool allowOverflow = false);
 
   // Same as above, but accepts PrestoDB time zone ID.
   void toTimezone(int16_t tzID);
