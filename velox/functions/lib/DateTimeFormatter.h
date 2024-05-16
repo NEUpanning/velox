@@ -174,7 +174,7 @@ class DateTimeFormatter {
   }
 
   // If failOnError is false, returns std::nullopt for parsing error.
-  // Otherwise, fail with error thrown.
+  // Otherwise, fail with error thrown. 将输入的 string 转换为 velox type:Timestamp
   std::optional<DateTimeResult> parse(
       const std::string_view& input,
       const bool failOnError = false) const;
@@ -188,7 +188,7 @@ class DateTimeFormatter {
   ///
   /// The timestamp will be firstly converted to millisecond then to
   /// std::chrono::time_point. If allowOverflow is true, integer overflow is
-  /// allowed in converting to milliseconds.
+  /// allowed in converting to milliseconds. 将输入的 velox type:Timestamp 转换为 string
   int32_t format(
       const Timestamp& timestamp,
       const date::time_zone* timezone,
