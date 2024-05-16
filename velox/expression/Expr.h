@@ -137,7 +137,7 @@ class MutableRemainingRows {
   LocalSelectivityVector mutableRowsHolder_;
 };
 
-// An executable expression.
+// An executable expression.相当于spark的物理计划，可执行
 class Expr {
  public:
   Expr(
@@ -710,7 +710,7 @@ using ExprPtr = std::shared_ptr<Expr>;
 // with partial loading.
 class ExprSet {
  public:
-  explicit ExprSet(
+  explicit ExprSet( // 构造函数处理expression(ITypedExpr)并创建exec::expr类实例的树。
       const std::vector<core::TypedExprPtr>& source,
       core::ExecCtx* execCtx,
       bool enableConstantFolding = true);

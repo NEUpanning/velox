@@ -257,10 +257,10 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   void setInternalState();
-
+  // 映射到dictionaryValues_中的indice
   BufferPtr indices_;
-  const vector_size_t* rawIndices_ = nullptr;
-
+  const vector_size_t* rawIndices_ = nullptr; // indices_->as<vector_size_t>()
+  // 引用的vector
   VectorPtr dictionaryValues_;
   // Caches 'dictionaryValues_.get()' if scalar type.
   SimpleVector<T>* scalarDictionaryValues_ = nullptr;

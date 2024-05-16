@@ -19,6 +19,7 @@
 #include "velox/functions/prestosql/json/JsonStringUtil.h"
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "simdjson.h"
 
 using namespace facebook::velox;
 
@@ -1209,6 +1210,34 @@ TEST_F(JsonCastTest, toArray) {
 }
 
 TEST_F(JsonCastTest, toMap) {
+//  auto json = R"({
+//  "name": "John",
+//  "age": 30,
+//  "isStudent": false,
+//  "home":{"city":"sjh"},
+//  "add":null
+//})"_padded;
+  auto json = R"({
+  "add":null
+})"_padded;
+  simdjson::ondemand::parser parser;
+  auto doc = parser.iterate(json);
+  simdjson::ondemand::object object = doc.get_object();
+  for(auto field : object) {
+    // parses and writes out the key, after unescaping it,
+    // to a string buffer. It causes a performance penalty.
+    std::string_view key;
+    field.unescaped_key().get(key);
+    std::cout << key << std::endl;
+    simdjson::ondemand::value v;
+    field.value().get(v);
+    if (v.type() == simdjson::ondemand::json_type::string) {
+      std::cout << std::string_view(v) << std::endl;
+    } else {
+      std::cout << simdjson::to_json_string(v) << std::endl;
+    }
+
+  }
   auto data = makeNullableFlatVector<JsonNativeType>(
       {R"({"red":"1","blue":2.2})"_sv,
        R"({"purple":null,"yellow":4})"_sv,

@@ -975,19 +975,19 @@ class DynamicRowView {
 };
 
 template <bool returnsOptionalValues, typename... T>
-class RowView
+class RowView// 用于读取row数据
     : public ViewWithComparison<RowView<returnsOptionalValues, T...>> {
-  using reader_t = std::tuple<std::unique_ptr<VectorReader<T>>...>;
-  using types = std::tuple<T...>;
+  using reader_t = std::tuple<std::unique_ptr<VectorReader<T>>...>;// row的每个column都是vector，这里是用于读取vector的VectorReader列表
+  using types = std::tuple<T...>;// 每个vector（column）的数据类型
 
   template <size_t N>
-  using elem_n_t = typename std::conditional<
+  using elem_n_t = typename std::conditional<// OptionalAccessor读取vector，其泛型为第N个vector存储的数据类型
       returnsOptionalValues,
       OptionalAccessor<typename std::tuple_element<N, types>::type>,
       typename std::tuple_element<N, reader_t>::type::element_type::
           exec_null_free_in_t>::type;
 
-  vector_size_t offset() const {
+  vector_size_t offset() const {// column位置
     return offset_;
   }
 
@@ -997,7 +997,7 @@ class RowView
 
   template <size_t I>
   elem_n_t<I> at() const {
-    if constexpr (returnsOptionalValues) {
+    if constexpr (returnsOptionalValues) {// 构建OptionalAccessor访问第offset_个column的vector
       return elem_n_t<I>{std::get<I>(*childReaders_).get(), offset_};
     } else {
       return std::get<I>(*childReaders_)->readNullFree(offset_);

@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
   // vector of expression trees (if there are multiple expressions to be
   // evaluated). ExprSet will output one column per input exprTree. It also
   // takes the execution context associated with the current thread of
-  // execution.
+  // execution. 会执行compile，将ITypedExpr转换为Expr
   exec::ExprSet exprSet({exprTree}, &execCtx);
 
   // Generate input batch.

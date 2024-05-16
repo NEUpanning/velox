@@ -30,7 +30,8 @@ velox_add_library(
   RegexFunctions.cpp
   Size.cpp
   String.cpp
-  UnscaledValueFunction.cpp)
+  UnscaledValueFunction.cpp
+  json2map.cpp)
 
 velox_link_libraries(
   velox_functions_spark_impl

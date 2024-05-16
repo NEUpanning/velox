@@ -29,12 +29,12 @@ std::optional<TResult> applyToVectorFunctionEntry(
   auto sanitizedName = sanitizeName(name);
 
   return vectorFunctionFactories().withRLock(
-      [&](auto& functions) -> std::optional<TResult> {
-        auto it = functions.find(sanitizedName);
+      [&](auto& functions) -> std::optional<TResult> {// functions中包含所有vector function
+        auto it = functions.find(sanitizedName);// 获取VectorFunctionEntry
         if (it == functions.end()) {
           return std::nullopt;
         }
-        return applyFunc(sanitizedName, it->second);
+        return applyFunc(sanitizedName, it->second);// string , VectorFunctionEntry
       });
 }
 
@@ -130,20 +130,20 @@ getVectorFunctionWithMetadata(
     VELOX_CHECK_EQ(inputTypes.size(), constantInputs.size());
   }
 
-  return applyToVectorFunctionEntry<
+  return applyToVectorFunctionEntry<// 获取VectorFunction并调用下面的lambda
       std::pair<std::shared_ptr<VectorFunction>, VectorFunctionMetadata>>(
       name,
-      [&](const auto& sanitizedName, const auto& entry)
+      [&](const auto& sanitizedName, const auto& entry)// VectorFunctionEntry
           -> std::optional<std::pair<
               std::shared_ptr<VectorFunction>,
               VectorFunctionMetadata>> {
-        for (const auto& signature : entry.signatures) {
+        for (const auto& signature : entry.signatures) {// 遍历一个函数的多个签名，查看input types匹配哪一个签名
           exec::SignatureBinder binder(*signature, inputTypes);
-          if (binder.tryBind()) {
+          if (binder.tryBind()) {// 判断是否匹配
             auto inputArgs = toVectorFunctionArgs(inputTypes, constantInputs);
 
             return {
-                {entry.factory(sanitizedName, inputArgs, config),
+                {entry.factory(sanitizedName, inputArgs, config),// 构建vector function
                  entry.metadata}};
           }
         }
@@ -163,7 +163,7 @@ bool registerStatefulVectorFunction(
   auto sanitizedName = sanitizeName(name);
 
   if (overwrite) {
-    vectorFunctionFactories().withWLock([&](auto& functionMap) {
+    vectorFunctionFactories().withWLock([&](auto& functionMap) {// 将vector function保存到functionMap
       // Insert/overwrite.
       functionMap[sanitizedName] = {
           std::move(signatures), std::move(factory), std::move(metadata)};

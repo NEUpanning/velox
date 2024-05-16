@@ -25,7 +25,7 @@ class ITypedExprVisitorContext;
 
 using TypedExprPtr = std::shared_ptr<const ITypedExpr>;
 
-/// Strongly-typed expression, e.g. literal, function call, etc.
+/// Strongly-typed expression, e.g. literal, function call, etc. 相当于spark的逻辑计划，需要转换为exec::Expr执行
 class ITypedExpr : public ISerializable {
  public:
   explicit ITypedExpr(TypePtr type) : type_{std::move(type)}, inputs_{} {}
@@ -88,8 +88,8 @@ class ITypedExpr : public ISerializable {
   }
 
  private:
-  TypePtr type_;
-  std::vector<TypedExprPtr> inputs_;
+  TypePtr type_;// return type
+  std::vector<TypedExprPtr> inputs_;// 子节点，也是该expression的输入
 };
 
 } // namespace facebook::velox::core

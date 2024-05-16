@@ -421,9 +421,9 @@ struct ArrayVectorBase : BaseVector {
       vector_size_t minChildVectorSize) const;
 
  protected:
-  BufferPtr offsets_;
+  BufferPtr offsets_; // 每个array的起始offset
   const vector_size_t* rawOffsets_;
-  BufferPtr sizes_;
+  BufferPtr sizes_;// 每个array的元素的数量
   const vector_size_t* rawSizes_;
 };
 
@@ -538,7 +538,7 @@ class ArrayVector : public ArrayVectorBase {
   void validate(const VectorValidateOptions& options) const override;
 
  private:
-  VectorPtr elements_;
+  VectorPtr elements_; // 所有Array中的所有元素
 };
 
 class MapVector : public ArrayVectorBase {
@@ -727,7 +727,7 @@ class MapVector : public ArrayVectorBase {
   std::shared_ptr<MapVector> updateImpl(
       const folly::Range<DecodedVector*>& others) const;
 
-  VectorPtr keys_;
+  VectorPtr keys_; // 所有map的所有key和value
   VectorPtr values_;
   bool sortedKeys_;
 };

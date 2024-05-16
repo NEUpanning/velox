@@ -44,17 +44,17 @@ namespace facebook::velox::exec {
 
 class VectorWriterBase {
  public:
-  virtual void setOffset(vector_size_t offset) {
+  virtual void setOffset(vector_size_t offset) {// 移动指向的Vector中element的offset
     offset_ = offset;
   }
-  virtual void commit(bool isSet) = 0;
+  virtual void commit(bool isSet) = 0;// 提交当前offset处的element
   virtual void ensureSize(size_t size) = 0;
   virtual void finish() {}
   // Implementations that write variable length data or complex types should
   // override this to reset their state and that of their children.
   virtual void finalizeNull() {}
   virtual ~VectorWriterBase() {}
-  vector_size_t offset_ = 0;
+  vector_size_t offset_ = 0;// vector中全局的offset
 };
 
 template <typename T, typename B>
@@ -723,12 +723,12 @@ class MapWriter {
 
   MapWriter& operator=(const MapWriter<K, V>&) = default;
 
-  vector_size_t indexOfLast() {
+  vector_size_t indexOfLast() { // mapvector整体上的末尾offset
     return innerOffset_ + length_ - 1;
   }
 
   // Should be called by the user (VectorWriter) when writing is done to
-  // commit last item if needed.
+  // commit last item if needed. 写完一个map时调用
   void finalize() {
     commitMostRecentChildItem();
     innerOffset_ += length_;
@@ -780,13 +780,13 @@ class MapWriter {
 
   key_element_t& lastKeyWriter() {
     auto index = indexOfLast();
-    if constexpr (!requires_commit<K>) {
+    if constexpr (!requires_commit<K>) {// 类型判断
       VELOX_DCHECK(provide_std_interface<K>);
       return keysWriter_->data_[index];
     } else {
       keyNeedsCommit_ = true;
-      keysWriter_->setOffset(index);
-      return keysWriter_->current();
+      keysWriter_->setOffset(index); // 设置Key写入的offset
+      return keysWriter_->current(); // 返回offset处的引用
     }
   }
 
@@ -815,10 +815,10 @@ class MapWriter {
   bool keyNeedsCommit_ = false;
   bool valueNeedsCommit_ = false;
 
-  // Length of the current map being written.
+  // Length of the current map being written. 正在写入的这个map的length
   vector_size_t length_ = 0;
 
-  // The offset within the children vectors at which this map starts.
+  // The offset within the children vectors at which this map starts. 正在写入的这个map在mapvector中的起始offset
   vector_size_t innerOffset_ = 0;
 
   template <typename A, typename B>

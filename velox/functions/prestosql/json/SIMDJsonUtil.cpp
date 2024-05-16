@@ -30,7 +30,7 @@ void simdjsonErrorsToExceptions(
 
 simdjson::simdjson_result<simdjson::ondemand::document> simdjsonParse(
     const simdjson::padded_string_view& json) {
-  thread_local simdjson::ondemand::parser parser;
+  thread_local simdjson::ondemand::parser parser; // parser不是线程安全的，一个parser只能同时处理一个document，因此需要声明为thread_local
   return parser.iterate(json);
 }
 

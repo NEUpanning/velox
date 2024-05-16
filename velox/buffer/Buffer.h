@@ -263,7 +263,7 @@ class Buffer {
         podType_(podType) {}
 
   velox::memory::MemoryPool* const pool_;
-  uint8_t* const data_;
+  uint8_t* const data_; // 指向this地址的末尾，uint8_t是为了按1字节移动指针
   uint64_t size_ = 0;
   uint64_t capacity_ = 0;
   std::atomic<int32_t> referenceCount_;
@@ -367,7 +367,7 @@ class AlignedBuffer : public Buffer {
     }
 
     void* memory = pool->allocate(preferredSize);
-    auto* buffer = new (memory) ImplClass<T>(pool, preferredSize - kPaddedSize);
+    auto* buffer = new (memory) ImplClass<T>(pool, preferredSize - kPaddedSize); // 通过定位new运算符确定Buffer的位置
     // set size explicitly instead of setSize because `fillNewMemory` already
     // called the constructors
     buffer->size_ = size;
