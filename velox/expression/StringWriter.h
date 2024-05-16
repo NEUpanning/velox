@@ -23,7 +23,7 @@
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
-class StringWriter : public UDFOutputString {
+class StringWriter : public UDFOutputString {//StringWriter通过append方法拼接字符串，最后通过finalize方法将string写入到vector的offset处
  public:
   // Used to initialize top-level strings and allow zero-copy writes.
   StringWriter(FlatVector<StringView>* vector, int32_t offset)

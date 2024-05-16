@@ -68,8 +68,8 @@ struct StringView {
       }
       // small string: inlined. Zero the last 8 bytes first to allow for whole
       // word comparison.
-      value_.data = nullptr;
-      memcpy(prefix_, data, size_);
+      value_.data = nullptr; // 因为data和inlined共用内存区域，'\0'的ascii为0，这里将该内存区域均置位0，也就是inlined均置位'\0'
+      memcpy(prefix_, data, size_); // 因为prefix_和inlined在内存中是连续的并且没有因为内存对齐而有间隙，因此该调用将data的4之后的元素拷贝到了inlined
     } else {
       // large string: store pointer
       memcpy(prefix_, data, kPrefixSize);

@@ -1802,12 +1802,12 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
   uint64_t totalBytes{0};
   while (iter.lastRowIndex < iter.rows->size()) {
     if (!iter.nextHit) {
-      const auto row = (*iter.rows)[iter.lastRowIndex];
-      iter.nextHit = (*iter.hits)[row]; // NOLINT
-      if (!iter.nextHit) {
+      const auto row = (*iter.rows)[iter.lastRowIndex];// input row
+      iter.nextHit = (*iter.hits)[row]; // NOLINT input row 命中的element
+      if (!iter.nextHit) {// row没命中hash table的情况
         ++iter.lastRowIndex;
         if (includeMisses) {
-          inputRows[numOut] = row; // NOLINT
+          inputRows[numOut] = row; // NOLINT 只有probe table的数据，build table为空
           hits[numOut] = nullptr;
           ++numOut;
           if (numOut >= maxOut) {
@@ -1818,7 +1818,7 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
       }
     }
 
-    while (iter.nextHit) {
+    while (iter.nextHit) {// 遍历与命中的element对应key相同的所有row
       char* next = nullptr;
       if (nextOffset_) {
         next = nextRow(iter.nextHit);
@@ -1827,13 +1827,13 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
         }
       }
       inputRows[numOut] = (*iter.rows)[iter.lastRowIndex]; // NOLINT
-      hits[numOut] = iter.nextHit;
+      hits[numOut] = iter.nextHit; // 保存命中的row
       totalBytes += iter.estimatedRowSize.has_value()
           ? iter.estimatedRowSize.value()
           : (joinProjectedVarColumnsSize(
                  iter.varSizeListColumns, iter.nextHit) +
              iter.fixedSizeListColumnsSizeSum);
-      ++numOut;
+      ++numOut;// 更新对应的结果行数
       iter.nextHit = next;
       if (!iter.nextHit) {
         ++iter.lastRowIndex;
@@ -2125,7 +2125,7 @@ void populateLookupRows(
     std::iota(lookupRows.begin(), lookupRows.end(), 0);
   } else {
     lookupRows.clear();
-    rows.applyToSelected([&](auto row) { lookupRows.push_back(row); });
+    rows.applyToSelected([&](auto row) { lookupRows.push_back(row); });// 仅保存未过滤的row
   }
 }
 } // namespace

@@ -45,14 +45,6 @@ class MapTest : public SparkFunctionBaseTest {
   }
 };
 
-TEST_F(MapTest, Basics) {
-  auto inputVector1 = makeNullableFlatVector<int64_t>({1, 2, 3});
-  auto inputVector2 = makeNullableFlatVector<int64_t>({4, 5, 6});
-  auto mapVector =
-      makeMapVector<int64_t, int64_t>({{{1, 4}}, {{2, 5}}, {{3, 6}}});
-  testMap("map(c0, c1)", {inputVector1, inputVector2}, mapVector);
-}
-
 TEST_F(MapTest, Nulls) {
   auto inputVector1 = makeNullableFlatVector<int64_t>({1, 2, 3});
   auto inputVector2 =

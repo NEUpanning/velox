@@ -175,13 +175,13 @@ std::vector<ExprPtr> compileInputs(
     bool enableConstantFolding) {
   std::vector<ExprPtr> compiledInputs;
   auto flattenIf = shouldFlatten(expr, flatteningCandidates);
-  for (auto& input : expr->inputs()) {
+  for (auto& input : expr->inputs()) {// 递归叶子节点执行compile
     if (input->isInputKind()) {
       VELOX_CHECK(
           expr->isFieldAccessKind(),
           "An InputReference can only occur under a FieldReference");
     } else {
-      if (flattenIf.has_value()) {
+      if (flattenIf.has_value()) {// 是否能 flatten
         std::vector<TypedExprPtr> flat;
         flattenInput(input, flattenIf.value(), flat);
         for (auto& input_2 : flat) {
@@ -194,7 +194,7 @@ std::vector<ExprPtr> compileInputs(
               enableConstantFolding));
         }
       } else {
-        compiledInputs.push_back(compileExpression(
+        compiledInputs.push_back(compileExpression(// 递归进行compile
             input,
             scope,
             config,
@@ -354,7 +354,7 @@ std::vector<VectorPtr> getConstantInputs(const std::vector<ExprPtr>& exprs) {
 }
 
 core::TypedExprPtr rewriteExpression(const core::TypedExprPtr& expr) {
-  for (auto& rewrite : expressionRewrites()) {
+  for (auto& rewrite : expressionRewrites()) { // 遍历用于rewrite的函数指针执行rewrite
     if (auto rewritten = rewrite(expr)) {
       return rewritten;
     }
@@ -470,7 +470,7 @@ ExprPtr compileRewrittenExpression(
     memory::MemoryPool* pool,
     const std::unordered_set<std::string>& flatteningCandidates,
     bool enableConstantFolding) {
-  ExprPtr alreadyCompiled = getAlreadyCompiled(expr.get(), &scope->visited);
+  ExprPtr alreadyCompiled = getAlreadyCompiled(expr.get(), &scope->visited);// 公共子表达式无需多次compile
   if (alreadyCompiled) {
     if (!alreadyCompiled->isMultiplyReferenced()) {
       scope->exprSet->addToReset(alreadyCompiled);
@@ -510,7 +510,7 @@ ExprPtr compileRewrittenExpression(
     }
     case core::ExprKind::kFieldAccess: {
       const auto* access = expr->asUnchecked<core::FieldAccessTypedExpr>();
-      auto fieldReference = std::make_shared<FieldReference>(
+      auto fieldReference = std::make_shared<FieldReference>(// 直接构建成Expr
           expr->type(), std::move(compiledInputs), access->name());
       if (access->isInputColumn()) {
         // We only want to capture references to top level fields, not struct
@@ -576,7 +576,7 @@ ExprPtr compileExpression(
     const std::unordered_set<std::string>& flatteningCandidates,
     bool enableConstantFolding) {
   auto rewritten = rewriteExpression(expr);
-  if (rewritten.get() != expr.get()) {
+  if (rewritten.get() != expr.get()) {// 由于现在没有rewrite的函数，所以不会走这里
     scope->rewrittenExpressions.push_back(rewritten);
   }
   return compileRewrittenExpression(

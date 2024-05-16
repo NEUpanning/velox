@@ -133,7 +133,7 @@ class MapWriterTest : public functions::test::FunctionBaseTest {
     TestWriter writer;
 
     writer.result =
-        prepareResult(std::make_shared<MapType>(MapType(BIGINT(), BIGINT())));
+        prepareResult(std::make_shared<MapType>(MapType(BIGINT(), BIGINT())), 2);
     writer.writer->init(*writer.result->as<MapVector>());
     writer.writer->setOffset(0);
     return writer;
@@ -251,6 +251,30 @@ TEST_F(MapWriterTest, emplace) {
   map_pairs_t<int64_t, int64_t> expected = {
       {1, 1}, {2, std::nullopt}, {3, std::nullopt}, {4, 11}};
   assertEqualVectors(result, makeMapVector<int64_t, int64_t>({expected}));
+}
+
+TEST_F(MapWriterTest, emplaceM) {
+  auto [result, vectorWriter] = makeTestWriter();
+
+  auto& mapWriter = vectorWriter->current();
+
+  mapWriter.emplace(1, 1);
+  mapWriter.emplace(2, std::nullopt);
+  mapWriter.emplace(3, std::optional<int64_t>{std::nullopt});
+  mapWriter.emplace(4, std::optional<int64_t>{11});
+
+  vectorWriter->commit();
+  vectorWriter->setOffset(1);
+  mapWriter.emplace(1, 1);
+  mapWriter.emplace(2, std::nullopt);
+  mapWriter.emplace(3, std::optional<int64_t>{std::nullopt});
+  mapWriter.emplace(4, std::optional<int64_t>{11});
+  vectorWriter->commit(false);
+  vectorWriter->finish();
+
+  map_pairs_t<int64_t, int64_t> expected = {
+      {1, 1}, {2, std::nullopt}, {3, std::nullopt}, {4, 11}};
+  assertEqualVectors(result, makeMapVector<int64_t, int64_t>({expected, expected}));
 }
 
 TEST_F(MapWriterTest, resizeAndSubscriptAccess) {

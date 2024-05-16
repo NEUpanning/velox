@@ -237,14 +237,14 @@ void GroupingSet::addInputForActiveRows(
     bool mayPushdown) {
   VELOX_CHECK(!isGlobal_);
   if (!table_) {
-    createHashTable();
+    createHashTable(); // 创建hash table
   }
   ensureInputFits(input);
 
   TestValue::adjust(
       "facebook::velox::exec::GroupingSet::addInputForActiveRows", this);
 
-  table_->prepareForGroupProbe(
+  table_->prepareForGroupProbe(// 使用input 数据填充hash table和lookup_
       *lookup_,
       input,
       activeRows_,
@@ -254,11 +254,11 @@ void GroupingSet::addInputForActiveRows(
     // have null keys.
     return;
   }
-
+// 对于所有的key，创建和找到对应的group
   table_->groupProbe(*lookup_, BaseHashTable::kNoSpillInputStartPartitionBit);
   masks_.addInput(input, activeRows_);
 
-  auto* groups = lookup_->hits.data();
+  auto* groups = lookup_->hits.data();// 所有的groups
   const auto& newGroups = lookup_->newGroups;
 
   for (auto i = 0; i < aggregates_.size(); ++i) {
@@ -281,7 +281,7 @@ void GroupingSet::addInputForActiveRows(
 
     auto& function = aggregates_[i].function;
     if (!newGroups.empty()) {
-      function->initializeNewGroups(groups, newGroups);
+      function->initializeNewGroups(groups, newGroups);// 对于新的group要执行初始化accumulator
     }
 
     // Check is mask is false for all rows.
@@ -295,7 +295,7 @@ void GroupingSet::addInputForActiveRows(
     // this.
     const bool canPushdown = (&rows == &activeRows_) && mayPushdown &&
         mayPushdown_[i] && areAllLazyNotLoaded(tempVectors_);
-    if (isRawInput_) {
+    if (isRawInput_) {// 执行agg function对应的方法，将数据写入accumulator
       function->addRawInput(groups, rows, tempVectors_, canPushdown);
     } else {
       function->addIntermediateResults(groups, rows, tempVectors_, canPushdown);
@@ -794,7 +794,7 @@ void GroupingSet::extractGroups(
 
     auto& function = aggregates_[i].function;
     auto& aggregateVector = result->childAt(i + totalKeys);
-    if (isPartial_) {
+    if (isPartial_) {// 将聚合缓冲的结果也就是accumulator提取到vector中
       function->extractAccumulators(
           groups.data(), groups.size(), &aggregateVector);
     } else {

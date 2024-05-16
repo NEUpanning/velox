@@ -61,7 +61,7 @@ void HashAggregation::initialize() {
   setupGroupingKeyChannelProjections(
       groupingKeyInputChannels, groupingKeyOutputChannels);
 
-  auto hashers = createVectorHashers(inputType, groupingKeyInputChannels);
+  auto hashers = createVectorHashers(inputType, groupingKeyInputChannels);// 负责执行key的取Hash值
   const auto numHashers = hashers.size();
 
   std::vector<column_index_t> preGroupedChannels;
@@ -177,7 +177,7 @@ void HashAggregation::addInput(RowVectorPtr input) {
     mayPushdown_ = operatorCtx_->driver()->mayPushdownAggregation(this);
     pushdownChecked_ = true;
   }
-  if (abandonedPartialAggregation_) {
+  if (abandonedPartialAggregation_) {// 放弃执行，直接输出到下游
     input_ = input;
     numInputRows_ += input->size();
     return;
@@ -192,7 +192,7 @@ void HashAggregation::addInput(RowVectorPtr input) {
   // partial aggregator. Hence, we have to use more memory anyway.
   const bool abandonPartialEarly = isPartialOutput_ && !isGlobal_ &&
       abandonPartialAggregationEarly(groupingSet_->numDistinct());
-  if (isPartialOutput_ && !isGlobal_ &&
+  if (isPartialOutput_ && !isGlobal_ &&// 如果果op内存超限或者执行成本过高且不是global才会flush,因为global的partial和final执行的相同都要用内存
       (abandonPartialEarly ||
        groupingSet_->isPartialFull(maxPartialAggregationMemoryUsage_))) {
     partialFull_ = true;
@@ -285,7 +285,7 @@ void HashAggregation::maybeIncreasePartialAggregationMemoryUsage(
   constexpr int32_t kPartialMinFinalPct = 40;
   VELOX_DCHECK(isPartialOutput_);
   // If size is at max and there still is not enough reduction, abandon partial
-  // aggregation.
+  // aggregation. 如果op内存超限或者执行成本过高则放弃partial agg，直接将raw input为intermediate输出
   if (abandonPartialAggregationEarly(numOutputRows_) ||
       (aggregationPct > kPartialMinFinalPct &&
        maxPartialAggregationMemoryUsage_ >=
@@ -322,7 +322,7 @@ RowVectorPtr HashAggregation::getOutput() {
     input_ = nullptr;
     return nullptr;
   }
-  if (abandonedPartialAggregation_) {
+  if (abandonedPartialAggregation_) { // 放弃执行partial，直接输出到下游
     if (noMoreInput_) {
       finished_ = true;
     }
@@ -330,7 +330,7 @@ RowVectorPtr HashAggregation::getOutput() {
       return nullptr;
     }
     prepareOutput(input_->size());
-    groupingSet_->toIntermediate(input_, output_);
+    groupingSet_->toIntermediate(input_, output_);// raw input转为intermediate
     numOutputRows_ += input_->size();
     input_ = nullptr;
     return output_;

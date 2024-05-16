@@ -86,8 +86,8 @@ class HashAggregation : public Operator {
 
   std::shared_ptr<const core::AggregationNode> aggregationNode_;
 
-  const bool isPartialOutput_;
-  const bool isGlobal_;
+  const bool isPartialOutput_;// 是否为partial agg，partial才能flush
+  const bool isGlobal_;// 是否为global agg
   const bool isDistinct_;
   const int64_t maxExtendedPartialAggregationMemoryUsage_;
   // Minimum number of rows to see before deciding to give up on partial
@@ -98,7 +98,7 @@ class HashAggregation : public Operator {
   const int32_t abandonPartialAggregationMinPct_;
 
   int64_t maxPartialAggregationMemoryUsage_;
-  std::unique_ptr<GroupingSet> groupingSet_;
+  std::unique_ptr<GroupingSet> groupingSet_;// 用于真正执行聚合操作
 
   // Size of a single output row estimated using
   // 'groupingSet_->estimateRowSize()'. If spilling, this value is set to max
@@ -108,12 +108,12 @@ class HashAggregation : public Operator {
   bool partialFull_ = false;
   bool newDistincts_ = false;
   bool finished_ = false;
-  // True if partial aggregation has been found to be non-reducing.
+  // True if partial aggregation has been found to be non-reducing. 如果op内存超限或者执行成本过高则放弃partial agg，直接将raw input转为intermediate输出
   bool abandonedPartialAggregation_{false};
 
   RowContainerIterator resultIterator_;
   bool pushdownChecked_ = false;
-  bool mayPushdown_ = false;
+  bool mayPushdown_ = false;// 聚合操作下推到table scan
 
   // Count the number of input rows. It is reset on partial aggregation output
   // flush.

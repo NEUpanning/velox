@@ -166,9 +166,9 @@ struct VectorWriter<Array<V>> : public VectorWriterBase {
 
 template <typename K, typename V>
 struct VectorWriter<Map<K, V>> : public VectorWriterBase {
-  using vector_t = typename TypeToFlatVector<Map<K, V>>::type;
-  using key_vector_t = typename TypeToFlatVector<K>::type;
-  using val_vector_t = typename TypeToFlatVector<V>::type;
+  using vector_t = typename TypeToFlatVector<Map<K, V>>::type; // map vector
+  using key_vector_t = typename TypeToFlatVector<K>::type; // FlatVector for K
+  using val_vector_t = typename TypeToFlatVector<V>::type;// FlatVector for V
   using exec_out_t = MapWriter<K, V>;
 
   void init(vector_t& vector) {
