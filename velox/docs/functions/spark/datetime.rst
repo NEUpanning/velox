@@ -328,3 +328,8 @@ These functions support TIMESTAMP and DATE input types.
     part of the 53rd week of year 2004, so the result is 2004. Only supports DATE type.
 
         SELECT year_of_week('2005-01-02'); -- 2004
+
+.. spark:function:: to_date(date) -> date
+
+    Returns the date part of a timestamp or string. ::
+        SELECT to_date('2009-07-30 04:17:52'); -- 2009-07-30

@@ -819,4 +819,13 @@ struct MillisToTimestampFunction {
   }
 };
 
+template <typename T>
+struct ToDateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<Date>& date) {
+    result = date;
+  }
+};
 } // namespace facebook::velox::functions::sparksql
