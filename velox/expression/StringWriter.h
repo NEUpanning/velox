@@ -159,7 +159,7 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
 
 // A string writer with UDFOutputString semantics that utilizes a pre-allocated
 // input string for the output allocation, if inPlace is true in the constructor
-// the string will be initialized with the input string value.
+// the string will be initialized with the input string value. StringWriter通过append方法拼接字符串，最后通过finalize方法将string写入到vector的offset处
 template <>
 class StringWriter<true /*reuseInput*/> : public UDFOutputString {
  public:
