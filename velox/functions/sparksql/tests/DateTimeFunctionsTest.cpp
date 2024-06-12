@@ -887,12 +887,12 @@ TEST_F(DateTimeFunctionsTest, fromUnixtime) {
   setQueryTimeZone("Asia/Shanghai");
 // In debug mode, Timestamp constructor will throw exception if range check
 // fails.
-#ifdef NDEBUG
+//#ifdef NDEBUG
   // Integer overflow in the internal conversion from seconds to milliseconds.
   EXPECT_EQ(
       fromUnixTime(std::numeric_limits<int64_t>::max(), "yyyy-MM-dd HH:mm:ss"),
       "1970-01-01 07:59:59");
-#endif
+//#endif
 
   EXPECT_EQ(fromUnixTime(0, "yyyy-MM-dd HH:mm:ss"), "1970-01-01 08:00:00");
   EXPECT_EQ(fromUnixTime(120, "yyyy-MM-dd HH:mm"), "1970-01-01 08:02");

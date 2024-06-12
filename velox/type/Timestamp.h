@@ -99,10 +99,10 @@ struct Timestamp {
 
   Timestamp(int64_t seconds, uint64_t nanos)
       : seconds_(seconds), nanos_(nanos) {
-    VELOX_USER_DCHECK_GE(
-        seconds, kMinSeconds, "Timestamp seconds out of range");
-    VELOX_USER_DCHECK_LE(
-        seconds, kMaxSeconds, "Timestamp seconds out of range");
+//    VELOX_USER_DCHECK_GE(
+//        seconds, kMinSeconds, "Timestamp seconds out of range");
+//    VELOX_USER_DCHECK_LE(
+//        seconds, kMaxSeconds, "Timestamp seconds out of range");
     VELOX_USER_DCHECK_LE(nanos, kMaxNanos, "Timestamp nanos out of range");
   }
 

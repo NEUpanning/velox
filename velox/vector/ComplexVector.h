@@ -378,9 +378,9 @@ struct ArrayVectorBase : BaseVector {
       vector_size_t minChildVectorSize) const;
 
  protected:
-  BufferPtr offsets_;
+  BufferPtr offsets_; // Offset 指向 elements 向量中对应array的第一个元素
   const vector_size_t* rawOffsets_;
-  BufferPtr sizes_;
+  BufferPtr sizes_;// size 指定该array中元素的数量
   const vector_size_t* rawSizes_;
 };
 
@@ -481,7 +481,7 @@ class ArrayVector : public ArrayVectorBase {
   void validate(const VectorValidateOptions& options) const override;
 
  private:
-  VectorPtr elements_;
+  VectorPtr elements_; // 所有Array中的所有元素
 };
 
 class MapVector : public ArrayVectorBase {
