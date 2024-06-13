@@ -806,10 +806,10 @@ struct CastFromJsonTypedImpl {
       auto& writerTyped = writer.castTo<Map<Any, Any>>();
       auto& keyType = writer.type()->childAt(0);
       auto& valueType = writer.type()->childAt(1);
-      SIMDJSON_ASSIGN_OR_RAISE(auto object, value.get_object());
+      SIMDJSON_ASSIGN_OR_RAISE(auto object, value.get_object());// 获取整个json object
       for (auto fieldResult : object) {
         SIMDJSON_ASSIGN_OR_RAISE(auto field, fieldResult);
-        SIMDJSON_ASSIGN_OR_RAISE(auto key, field.unescaped_key(true));
+        SIMDJSON_ASSIGN_OR_RAISE(auto key, field.unescaped_key(true)); // 未转义的key
         // If casting to map of JSON values, nulls in map values should become
         // the JSON text "null".
         if (!isJsonType(valueType) && field.value().is_null()) {
@@ -817,9 +817,9 @@ struct CastFromJsonTypedImpl {
               appendMapKey, keyType->kind(), key, writerTyped.add_null()));
         } else {
           auto writers = writerTyped.add_item();
-          SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(
+          SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(// 根据key type将key写入writer
               appendMapKey, keyType->kind(), key, std::get<0>(writers)));
-          SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(
+          SIMDJSON_TRY(VELOX_DYNAMIC_TYPE_DISPATCH(// value还可能是json object因此需要再调用CastFromJsonTypedImpl来写入writer
               CastFromJsonTypedImpl<simdjson::ondemand::value>::apply,
               valueType->kind(),
               field.value(),
@@ -1018,11 +1018,11 @@ template <TypeKind kind>
 simdjson::error_code castFromJsonOneRow(
     simdjson::padded_string_view input,
     exec::VectorWriter<Any>& writer) {
-  SIMDJSON_ASSIGN_OR_RAISE(auto doc, simdjsonParse(input));
+  SIMDJSON_ASSIGN_OR_RAISE(auto doc, simdjsonParse(input));// simdjsonParse返回parse后的document赋值给doc，如果失败将return error code跳出当前函数
   if (doc.is_null()) {
     writer.commitNull();
   } else {
-    SIMDJSON_TRY(
+    SIMDJSON_TRY( // 如果apply方法执行返回error，将return error code跳出当前函数
         CastFromJsonTypedImpl<simdjson::ondemand::document&>::apply<kind>(
             doc, writer.current()));
     writer.commit(true);
@@ -1088,7 +1088,7 @@ class JsonCastOperator : public exec::CastOperator {
       auto& input = inputVector->valueAt(row);
       maxSize = std::max(maxSize, input.size());
     });
-    paddedInput_.resize(maxSize + simdjson::SIMDJSON_PADDING);
+    paddedInput_.resize(maxSize + simdjson::SIMDJSON_PADDING);// 预先为input string分配内存，避免每行数据重复分配
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       writer.setOffset(row);
       if (inputVector->isNullAt(row)) {
@@ -1098,7 +1098,7 @@ class JsonCastOperator : public exec::CastOperator {
       auto& input = inputVector->valueAt(row);
       memcpy(paddedInput_.data(), input.data(), input.size());
       simdjson::padded_string_view paddedInput(
-          paddedInput_.data(), input.size(), paddedInput_.size());
+          paddedInput_.data(), input.size(), paddedInput_.size());// 直接使用paddedInput_来进行后续的parser::parse操作
       if (auto error = castFromJsonOneRow<kind>(paddedInput, writer)) {
         context.setVeloxExceptionError(row, errors_[error]);
         writer.commitNull();
