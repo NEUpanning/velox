@@ -378,9 +378,9 @@ struct ArrayVectorBase : BaseVector {
       vector_size_t minChildVectorSize) const;
 
  protected:
-  BufferPtr offsets_; // Offset 指向 elements 向量中对应array的第一个元素
+  BufferPtr offsets_; // 每个array的起始offset
   const vector_size_t* rawOffsets_;
-  BufferPtr sizes_;// size 指定该array中元素的数量
+  BufferPtr sizes_;// 每个array的元素的数量
   const vector_size_t* rawSizes_;
 };
 
@@ -649,7 +649,7 @@ class MapVector : public ArrayVectorBase {
   std::shared_ptr<MapVector> updateImpl(
       const std::vector<std::shared_ptr<MapVector>>& others) const;
 
-  VectorPtr keys_;
+  VectorPtr keys_; // 所有map的所有key和value
   VectorPtr values_;
   bool sortedKeys_;
 };

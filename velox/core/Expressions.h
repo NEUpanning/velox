@@ -263,7 +263,7 @@ class CallTypedExpr : public ITypedExpr {
   static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
-  const std::string name_;
+  const std::string name_; // function name
 };
 
 using CallTypedExprPtr = std::shared_ptr<const CallTypedExpr>;
@@ -370,7 +370,7 @@ class FieldAccessTypedExpr : public ITypedExpr {
   static TypedExprPtr create(const folly::dynamic& obj, void* context);
 
  private:
-  const std::string name_;
+  const std::string name_; // input column name
   const bool isInputColumn_;
 };
 

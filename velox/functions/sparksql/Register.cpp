@@ -254,6 +254,7 @@ void registerFunctions(const std::string& prefix) {
       makeXxHash64WithSeed,
       hashMetadata());
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map, prefix + "map");
+  VELOX_REGISTER_VECTOR_FUNCTION(json2map, prefix + "json2map");
 
   // Register 'in' functions.
   registerIn(prefix);

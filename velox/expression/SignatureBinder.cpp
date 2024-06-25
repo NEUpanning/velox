@@ -117,13 +117,13 @@ bool SignatureBinder::tryBind() {
       }
     }
   } else {
-    if (formalArgsCnt != actualTypes_.size()) {
+    if (formalArgsCnt != actualTypes_.size()) {// 参数个数不匹配
       return false;
     }
   }
 
   bool allBound = true;
-  for (auto i = 0; i < formalArgsCnt && i < actualTypes_.size(); i++) {
+  for (auto i = 0; i < formalArgsCnt && i < actualTypes_.size(); i++) {// 逐个参数进行对比
     if (actualTypes_[i]) {
       if (!SignatureBinderBase::tryBind(formalArgs[i], actualTypes_[i])) {
         allBound = false;

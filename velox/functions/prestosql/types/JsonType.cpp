@@ -1090,8 +1090,8 @@ class JsonCastOperator : public exec::CastOperator {
     });
     paddedInput_.resize(maxSize + simdjson::SIMDJSON_PADDING);// 预先为input string分配内存，避免每行数据重复分配
     context.applyToSelectedNoThrow(rows, [&](auto row) {
-      writer.setOffset(row);
-      if (inputVector->isNullAt(row)) {
+      writer.setOffset(row);// 定位到result中写的位置
+      if (inputVector->isNullAt(row)) { // 这里不是vector function因此没有默认的null behavior
         writer.commitNull();
         return;
       }
@@ -1101,7 +1101,7 @@ class JsonCastOperator : public exec::CastOperator {
           paddedInput_.data(), input.size(), paddedInput_.size());// 直接使用paddedInput_来进行后续的parser::parse操作
       if (auto error = castFromJsonOneRow<kind>(paddedInput, writer)) {
         context.setVeloxExceptionError(row, errors_[error]);
-        writer.commitNull();
+        writer.commitNull(); // cast失败写入null value
       }
     });
     writer.finish();

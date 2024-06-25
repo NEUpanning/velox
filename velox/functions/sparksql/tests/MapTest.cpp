@@ -46,6 +46,35 @@ class MapTest : public SparkFunctionBaseTest {
 };
 
 TEST_F(MapTest, Basics) {
+  auto vector = makeNullableFlatVector<StringView>(
+    {
+          R"({
+      "name": "John",
+      "age": 30
+    })",
+    R"({
+      "isStudent": false,
+      "home":{"city":"LA."}
+    })",
+    R"({
+      "school":null
+    })",
+    R"({
+      "school":null,
+      "school"
+    })"});
+  auto result = evaluate<MapVector>("json2map(c0)", makeRowVector({vector}));
+  MapVectorPtr expectedMapVector = makeMapVector<StringView, StringView>(
+      {
+          {{"name", "John"}, {"age", "30"}},
+       {{"isStudent", "false"}, {"home", "{\"city\":\"LA.\"}"}},
+       {{"school", ""}},
+          {{}}});
+  expectedMapVector.get()->mapValues()->setNull(4, true);
+//  expectedMapVector.get()->setOffsetAndSize(3, 0, 0);
+  expectedMapVector.get()->setNull(3, true);
+  ::facebook::velox::test::assertEqualVectors(expectedMapVector, result);
+
   auto inputVector1 = makeNullableFlatVector<int64_t>({1, 2, 3});
   auto inputVector2 = makeNullableFlatVector<int64_t>({4, 5, 6});
   auto mapVector =
