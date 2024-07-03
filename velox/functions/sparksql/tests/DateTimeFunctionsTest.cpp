@@ -256,6 +256,7 @@ TEST_F(DateTimeFunctionsTest, unixTimestamp) {
     return evaluateOnce<int64_t>("unix_timestamp(c0)", dateStr);
   };
 
+  EXPECT_EQ(0, unixTimestamp("1970-01-01 00:00:00.000"));
   EXPECT_EQ(0, unixTimestamp("1970-01-01 00:00:00"));
   EXPECT_EQ(1, unixTimestamp("1970-01-01 00:00:01"));
   EXPECT_EQ(61, unixTimestamp("1970-01-01 00:01:01"));
@@ -296,6 +297,7 @@ TEST_F(DateTimeFunctionsTest, unixTimestampCustomFormat) {
     return evaluateOnce<int64_t>("unix_timestamp(c0, c1)", dateStr, formatStr);
   };
 
+  EXPECT_EQ(0, unixTimestamp("1970-01-01 00:00:00", "yyyy-MM-dd"));
   EXPECT_EQ(0, unixTimestamp("1970-01-01", "yyyy-MM-dd"));
   EXPECT_EQ(-31536000, unixTimestamp("1969", "YYYY"));
   EXPECT_EQ(86400, unixTimestamp("1970-01-02", "yyyy-MM-dd"));

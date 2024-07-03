@@ -100,3 +100,5 @@ DEFINE_bool(
     "exception. This is only used by test to control the test error output size");
 
 DEFINE_bool(velox_memory_use_hugepages, true, "Use explicit huge pages");
+
+DEFINE_bool(velox_spark_legacy_time_parse_policy, true, "If true, date parsing behavior same as Spark with spark.sql.legacy.timeParserPolicy=legacy");
