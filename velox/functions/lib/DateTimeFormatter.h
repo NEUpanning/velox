@@ -145,6 +145,14 @@ struct DateTimeResult {
   int64_t timezoneId{-1};
 };
 
+enum class ParseMode {
+    // Aligned with Spark version 3.0.
+    kCorrect,
+
+    // Aligned with Spark version 2.4 and below.
+    kLegacy
+};
+
 /// A user defined formatter that formats/parses time to/from user provided
 /// format. User can use DateTimeFormatterBuilder to build desired formatter.
 /// E.g. In MySQL standard a formatter will have '%Y' '%d' and etc. as its
@@ -177,7 +185,7 @@ class DateTimeFormatter {
   // Returns an Expected<DateTimeResult> object containing the parsed
   // Timestamp and timezone information if parsing succeeded. Otherwise,
   // Returns Unexpected with UserError status if parsing failed.
-  Expected<DateTimeResult> parse(const std::string_view& input) const;
+  Expected<DateTimeResult> parse(const std::string_view& input, ParseMode parseMode = ParseMode::kCorrect) const;
 
   /// Returns max size of the formatted string. Can be used to preallocate
   /// memory before calling format() to avoid extra copy.

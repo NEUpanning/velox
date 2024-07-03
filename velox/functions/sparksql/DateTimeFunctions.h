@@ -22,6 +22,7 @@
 #include "velox/functions/lib/TimeUtils.h"
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/tz/TimeZoneMap.h"
+DECLARE_bool(velox_spark_legacy_time_parse_policy);
 
 namespace facebook::velox::functions::sparksql {
 
@@ -163,8 +164,12 @@ struct UnixTimestampParseFunction {
   FOLLY_ALWAYS_INLINE bool call(
       int64_t& result,
       const arg_type<Varchar>& input) {
+    ParseMode parseMode = ParseMode::kCorrect;
+    if (FLAGS_velox_spark_legacy_time_parse_policy) {
+      parseMode = ParseMode::kLegacy;
+    }
     auto dateTimeResult =
-        format_->parse(std::string_view(input.data(), input.size()));
+        format_->parse(std::string_view(input.data(), input.size()), parseMode);
     // Return null if could not parse.
     if (dateTimeResult.hasError()) {
       return false;

@@ -231,6 +231,7 @@ TEST_F(DateTimeFunctionsTest, unixTimestamp) {
     return evaluateOnce<int64_t>("unix_timestamp(c0)", dateStr);
   };
 
+  EXPECT_EQ(0, unixTimestamp("1970-01-01 00:00:00.000"));
   EXPECT_EQ(0, unixTimestamp("1970-01-01 00:00:00"));
   EXPECT_EQ(1, unixTimestamp("1970-01-01 00:00:01"));
   EXPECT_EQ(61, unixTimestamp("1970-01-01 00:01:01"));

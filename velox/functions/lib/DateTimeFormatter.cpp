@@ -1334,7 +1334,7 @@ int32_t DateTimeFormatter::format(
 }
 
 Expected<DateTimeResult> DateTimeFormatter::parse(
-    const std::string_view& input) const {
+    const std::string_view& input, ParseMode parseMode) const {
   Date date;
   const char* cur = input.data();
   const char* end = cur + input.size();
@@ -1367,7 +1367,7 @@ Expected<DateTimeResult> DateTimeFormatter::parse(
   }
 
   // Ensure all input was consumed.
-  if (cur < end) {
+  if (cur < end && parseMode == ParseMode::kCorrect) {
     return parseFail(input, cur, end);
   }
 
