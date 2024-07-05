@@ -267,6 +267,7 @@ io_file
 .vs
 settings.json
 .vscode
+.clangd
 
 # QtCreator files
 *.user
