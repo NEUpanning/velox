@@ -248,11 +248,8 @@ if(VELOX_ENABLE_HDFS)
 endif()
 
 if(VELOX_ENABLE_ISAL)
-  INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/third_party/isa-l/include")
-  find_library(
-    LIBISAL
-    NAMES libisal.so.2
-    HINTS "${CMAKE_SOURCE_DIR}/third_party/isa-l/lib" REQUIRED)
+  find_package(unofficial-isal CONFIG REQUIRED)
+  set(LIBISAL unofficial::isal::isal)
   add_definitions(-DVELOX_ENABLE_ISAL)
 endif()
 
@@ -563,7 +560,7 @@ endif()
 set_source(xsimd)
 resolve_dependency(xsimd 10.0.0)
 
-set(stemmer_SOURCE BUNDLED)
+set_source(stemmer)
 resolve_dependency(stemmer)
 
 if(VELOX_BUILD_TESTING)

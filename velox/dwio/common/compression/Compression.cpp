@@ -27,7 +27,7 @@
 #include <zstd_errors.h>
 
 #ifdef VELOX_ENABLE_ISAL
-#include <igzip_lib.h>
+#include <isa-l/igzip_lib.h>
 #endif
 
 namespace facebook::velox::dwio::common::compression {
