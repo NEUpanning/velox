@@ -22,15 +22,17 @@
 
 namespace facebook::velox::filesystems {
 std::string_view HdfsFileSystem::kScheme("hdfs://");
+std::string_view HdfsFileSystem::kScheme1("viewfs://");
 
 class HdfsFileSystem::Impl {
  public:
   // Keep config here for possible use in the future.
   explicit Impl(const Config* config, const HdfsServiceEndpoint& endpoint) {
     auto builder = hdfsNewBuilder();
-    hdfsBuilderSetNameNode(builder, endpoint.host.c_str());
-    hdfsBuilderSetNameNodePort(builder, atoi(endpoint.port.data()));
-    hdfsClient_ = hdfsBuilderConnect(builder);
+    // hdfsBuilderSetNameNode(builder, endpoint.host.c_str());
+    // hdfsBuilderSetNameNodePort(builder, atoi(endpoint.port.data()));
+    // hdfsClient_ = hdfsBuilderConnect(builder);
+    hdfsClient_ = hdfsConnect(endpoint.host.c_str(), atoi(endpoint.port.data()));
     hdfsFreeBuilder(builder);
     VELOX_CHECK_NOT_NULL(
         hdfsClient_,
@@ -70,8 +72,8 @@ std::string HdfsFileSystem::name() const {
 std::unique_ptr<ReadFile> HdfsFileSystem::openFileForRead(
     std::string_view path,
     const FileOptions& /*unused*/) {
-  if (path.find(kScheme) == 0) {
-    path.remove_prefix(kScheme.length());
+  if (path.find(kScheme1) == 0) {
+    path.remove_prefix(kScheme1.length());
   }
   if (auto index = path.find('/')) {
     path.remove_prefix(index);
@@ -83,11 +85,17 @@ std::unique_ptr<ReadFile> HdfsFileSystem::openFileForRead(
 std::unique_ptr<WriteFile> HdfsFileSystem::openFileForWrite(
     std::string_view path,
     const FileOptions& /*unused*/) {
+  if (path.find(kScheme1) == 0) {
+    path.remove_prefix(kScheme1.length());
+  }
+  if (auto index = path.find('/')) {
+    path.remove_prefix(index);
+  }
   return std::make_unique<HdfsWriteFile>(impl_->hdfsClient(), path);
 }
 
 bool HdfsFileSystem::isHdfsFile(const std::string_view filePath) {
-  return filePath.find(kScheme) == 0;
+  return filePath.find(kScheme) == 0 || filePath.find(kScheme1) == 0;
 }
 
 /// Gets hdfs endpoint from a given file path. If not found, fall back to get a
@@ -95,6 +103,17 @@ bool HdfsFileSystem::isHdfsFile(const std::string_view filePath) {
 HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(
     const std::string_view filePath,
     const Config* config) {
+  LOG(INFO) << "getServiceEndpoint: " << filePath;
+  if (filePath.find(kScheme1) == 0) {
+    //std::string hdfsHost = "dfsrouter.vip.sankuai.com";
+    //std::string hdfsPort = "8888";
+    std::string hdfsHost = "dfsrouter";
+    std::string hdfsPort = "0";
+    //auto nnValue = config->get("dfs.namenode.rpc-address.dfsrouter.r1");
+    LOG(INFO) << "hdfsHost is: " << hdfsHost;
+    LOG(INFO) << "hdfsPort is: " << hdfsPort;
+    return HdfsServiceEndpoint{hdfsHost, hdfsPort};
+  }
   auto endOfIdentityInfo = filePath.find('/', kScheme.size());
   std::string hdfsIdentity{
       filePath.data(), kScheme.size(), endOfIdentityInfo - kScheme.size()};

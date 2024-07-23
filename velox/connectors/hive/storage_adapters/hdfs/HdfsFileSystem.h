@@ -91,6 +91,7 @@ class HdfsFileSystem : public FileSystem {
       const Config* config);
 
   static std::string_view kScheme;
+  static std::string_view kScheme1;
 
  protected:
   class Impl;
