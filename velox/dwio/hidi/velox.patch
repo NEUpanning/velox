@@ -1,0 +1,212 @@
+diff --git a/velox/connectors/hive/CMakeLists.txt b/velox/connectors/hive/CMakeLists.txt
+index 5fbd192..2639568 100644
+--- a/velox/connectors/hive/CMakeLists.txt
++++ b/velox/connectors/hive/CMakeLists.txt
+@@ -37,6 +37,7 @@
+   velox_dwio_dwrf_writer
+   velox_dwio_parquet_reader
+   velox_dwio_parquet_writer
++  velox_dwio_hidi_reader
+   velox_file
+   velox_hive_partition_function
+   velox_s3fs
+diff --git a/velox/connectors/hive/HiveConnector.cpp b/velox/connectors/hive/HiveConnector.cpp
+index fdcacb5..ec261dd 100644
+--- a/velox/connectors/hive/HiveConnector.cpp
++++ b/velox/connectors/hive/HiveConnector.cpp
+@@ -32,6 +32,7 @@
+ #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h" // @manual
+ #endif
+ #include "velox/dwio/dwrf/reader/DwrfReader.h"
++#include "velox/dwio/hidi/reader/HidiReader.h"
+ #include "velox/dwio/dwrf/writer/Writer.h"
+ // Meta's buck build system needs this check.
+ #ifdef VELOX_ENABLE_PARQUET
+@@ -153,6 +154,7 @@
+     dwrf::registerOrcReaderFactory();
+     dwrf::registerDwrfReaderFactory();
+     dwrf::registerDwrfWriterFactory();
++    hidi::registerHidiReaderFactory();
+ // Meta's buck build system needs this check.
+ #ifdef VELOX_ENABLE_PARQUET
+     parquet::registerParquetReaderFactory();
+diff --git a/velox/connectors/hive/HiveConnectorSplit.h b/velox/connectors/hive/HiveConnectorSplit.h
+index 5b46c53..46da01d 100644
+--- a/velox/connectors/hive/HiveConnectorSplit.h
++++ b/velox/connectors/hive/HiveConnectorSplit.h
+@@ -55,7 +55,27 @@
+         tableBucketNumber(_tableBucketNumber),
+         customSplitInfo(_customSplitInfo),
+         extraFileInfo(_extraFileInfo),
+-        serdeParameters(_serdeParameters) {}
++        serdeParameters(_serdeParameters) {
++    if (fileFormat == dwio::common::FileFormat::HIDI) {
++      folly::dynamic splitInfo = folly::parseJson(_filePath);
++      VELOX_CHECK(splitInfo.get_ptr("dir"), "HidiSplit should have dir info!");
++      customSplitInfo.emplace("dir", splitInfo["dir"].asString());
++
++      if (splitInfo.get_ptr("startRow")) {
++        customSplitInfo.emplace("startRow", splitInfo["startRow"].asString());
++      }
++      if (splitInfo.get_ptr("stopRow")) {
++        customSplitInfo.emplace("stopRow", splitInfo["stopRow"].asString());
++      }
++
++      VELOX_CHECK(splitInfo.get_ptr("files"), "HidiSplit should have files info!");
++      int i = 0;
++      std::string fileKey = "file_";
++      for (const auto& file : splitInfo["files"]) {
++        customSplitInfo.emplace(fileKey + std::to_string(i++), file.asString());
++      }
++    }
++  }
+ 
+   std::string toString() const override {
+     if (tableBucketNumber.has_value()) {
+diff --git a/velox/connectors/hive/HiveDataSource.cpp b/velox/connectors/hive/HiveDataSource.cpp
+index ca710a2..779d7ee 100644
+--- a/velox/connectors/hive/HiveDataSource.cpp
++++ b/velox/connectors/hive/HiveDataSource.cpp
+@@ -544,6 +544,49 @@
+ 
+   VLOG(1) << "Adding split " << split_->toString();
+ 
++  if (split_->fileFormat == dwio::common::FileFormat::HIDI) {
++    if (splitReader_) {
++      splitReader_.reset();
++    }
++    splitReader_ = std::make_unique<SplitReader>(
++        split_, readerOutputType_, partitionKeys_, scanSpec_, pool_);
++    readerOpts_.setFileFormat(dwio::common::FileFormat::HIDI);
++    std::vector<std::shared_ptr<ReadFile>> files;
++    // get File list from HiveConnectorSplit
++    std::string dir = split_->customSplitInfo["dir"] + "/";
++    for (auto& [key, value] : split_->customSplitInfo) {
++      if (key.rfind("file_", 0) == 0) {
++        try {
++          files.emplace_back(fileHandleFactory_->generate(dir + value).second->file);
++        } catch (const VeloxException& e) {
++          // Corresponding to HidiKeyValueScanner's rebuildReader
++          LOG(WARNING) << e.message();
++          std::string trashFile = dir + ".HIDI_TRASH/" + value;
++          try {
++            files.emplace_back(fileHandleFactory_->generate(trashFile).second->file);
++          } catch (const VeloxException& e2) {
++            LOG(WARNING) << e2.message();
++            const size_t last_slash_idx = split_->customSplitInfo["dir"].rfind('/');
++            std::string parentDir = dir.substr(0, last_slash_idx);
++            trashFile = parentDir + "/.HIDI_TRASH/" + value;
++            files.emplace_back(fileHandleFactory_->generate(trashFile).second->file);
++          }
++        }
++      }
++    }
++    auto tableParam = hiveTableHandle_->tableParameters().find(
++        dwio::common::TableParameter::kCompactValues);
++    if (tableParam != hiveTableHandle_->tableParameters().end() &&
++        tableParam->second == "false") {
++      split_->customSplitInfo["compactValues"] = "false";
++    }
++    splitReader_->resetRowReader(files, readerOpts_);
++    // should reset output_, or HidiReader::next can't do resize with it
++    output_.reset();
++    output_ = BaseVector::create(readerOutputType_, 0, pool_);
++    return;
++  }
++
+   if (readerOpts_.getFileFormat() != dwio::common::FileFormat::UNKNOWN) {
+     VELOX_CHECK(
+         readerOpts_.getFileFormat() == split_->fileFormat,
+diff --git a/velox/connectors/hive/SplitReader.cpp b/velox/connectors/hive/SplitReader.cpp
+index ab2adf3..4a0adb4 100644
+--- a/velox/connectors/hive/SplitReader.cpp
++++ b/velox/connectors/hive/SplitReader.cpp
+@@ -269,6 +269,25 @@
+   hiveSplit_.reset();
+ }
+ 
++void SplitReader::resetRowReader(
++    const std::vector<std::shared_ptr<ReadFile>>& files,
++    const dwio::common::ReaderOptions& readerOpts) {
++  auto& fileType = readerOpts.getFileSchema();
++  auto columnTypes = adaptColumns(fileType, fileType);
++  configureRowReaderOptions(
++      rowReaderOpts_,
++      ROW(std::vector<std::string>(fileType->names()), std::move(columnTypes)));
++  auto readerFactory = dwio::common::getReaderFactory(
++      readerOpts.getFileFormat());
++  // NOTE: we firstly reset the finished 'baseRowReader_' of previous split
++  // before setting up for the next one to avoid doubling the peak memory usage.
++  baseRowReader_.reset();
++  baseRowReader_ = readerFactory->createRowReader(
++      files, readerOpts, rowReaderOpts_, hiveSplit_->customSplitInfo);
++  VELOX_CHECK(baseRowReader_ != nullptr, "Create row reader failed!");
++  emptySplit_ = false;
++}
++
+ int64_t SplitReader::estimatedRowSize() const {
+   if (!baseRowReader_) {
+     return DataSource::kUnknownRowSize;
+diff --git a/velox/connectors/hive/SplitReader.h b/velox/connectors/hive/SplitReader.h
+index 0cac6c4..e21ab06 100644
+--- a/velox/connectors/hive/SplitReader.h
++++ b/velox/connectors/hive/SplitReader.h
+@@ -70,6 +70,10 @@
+ 
+   void resetSplit();
+ 
++  void resetRowReader(
++      const std::vector<std::shared_ptr<ReadFile>>& files,
++      const dwio::common::ReaderOptions& readerOpts);
++
+   int64_t estimatedRowSize() const;
+ 
+   void updateRuntimeStats(dwio::common::RuntimeStatistics& stats) const;
+diff --git a/velox/dwio/CMakeLists.txt b/velox/dwio/CMakeLists.txt
+index 2dd3ea5..351c506 100644
+--- a/velox/dwio/CMakeLists.txt
++++ b/velox/dwio/CMakeLists.txt
+@@ -33,3 +33,4 @@
+ add_subdirectory(catalog)
+ add_subdirectory(dwrf)
+ add_subdirectory(parquet)
++add_subdirectory(hidi)
+diff --git a/velox/dwio/common/Options.h b/velox/dwio/common/Options.h
+index 81ddcf6..36102c7 100644
+--- a/velox/dwio/common/Options.h
++++ b/velox/dwio/common/Options.h
+@@ -45,6 +45,7 @@
+   PARQUET = 7,
+   ALPHA = 8,
+   ORC = 9,
++  HIDI = 10,
+ };
+ 
+ FileFormat toFileFormat(std::string s);
+@@ -94,6 +95,7 @@
+ 
+ struct TableParameter {
+   static constexpr const char* kSkipHeaderLineCount = "skip.header.line.count";
++  static constexpr const char* kCompactValues = "hidi.compact_values";
+ };
+ 
+ /**
+diff --git a/velox/dwio/common/ReaderFactory.h b/velox/dwio/common/ReaderFactory.h
+index c4833a9..e58f06f 100644
+--- a/velox/dwio/common/ReaderFactory.h
++++ b/velox/dwio/common/ReaderFactory.h
+@@ -60,6 +60,14 @@
+       std::unique_ptr<BufferedInput>,
+       const ReaderOptions& options) = 0;
+ 
++  virtual std::unique_ptr<RowReader> createRowReader(
++      const std::vector<std::shared_ptr<ReadFile>>& files,
++      const dwio::common::ReaderOptions& readerOpts,
++      const dwio::common::RowReaderOptions& options,
++      const std::unordered_map<std::string, std::string>& splitInfo) {
++    return nullptr;
++  }
++
+  private:
+   const FileFormat format_;
+ };
