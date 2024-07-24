@@ -244,14 +244,15 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   split_ = std::dynamic_pointer_cast<HiveConnectorSplit>(split);
   VELOX_CHECK_NOT_NULL(split_, "Wrong type of split");
 
-  VLOG(1) << "Adding split " << split_->toString();
+  VLOG(2) << "Adding split " << split_->toString();
 
   if (split_->fileFormat == dwio::common::FileFormat::HIDI) {
+    VLOG(2) << "Adding hidi split";
     if (splitReader_) {
       splitReader_.reset();
     }
     splitReader_ = createSplitReader();
-    // FIXME: readerOpts_->setFileFormat(dwio::common::FileFormat::HIDI);
+    splitReader_->setFileFormat(dwio::common::FileFormat::HIDI);
     std::vector<std::shared_ptr<ReadFile>> files;
     // get File list from HiveConnectorSplit
     std::string dir = split_->customSplitInfo["dir"] + "/";

@@ -410,6 +410,10 @@ std::vector<TypePtr> SplitReader::adaptColumns(
   return columnTypes;
 }
 
+void SplitReader::setFileFormat(dwio::common::FileFormat format) {
+  baseReaderOpts_.setFileFormat(format);
+}
+
 void SplitReader::resetRowReader(const std::vector<std::shared_ptr<ReadFile>>& files) {
   auto& fileType = baseReaderOpts_.fileSchema();
   auto columnTypes = adaptColumns(fileType, fileType);
