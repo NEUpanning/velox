@@ -26,12 +26,12 @@ HidiReader::HidiReader(
     : readerOpts_(readerOpts),
       rowReaderOpts_(rowReaderOpts),
       selector_(rowReaderOpts.getSelector()),
-      serde_(selector_, readerOpts.getFileSchema()),
+      serde_(selector_, readerOpts.fileSchema()),
       totalCount_(0), totalSizes_(0), reachEnd_(false),
       compactValues_(compactValues), schemaSize_(0) {
   options_.format.lz4_lzo.isHadoopFrameFormat = true;
   options_.format.lz4_lzo.strategy = 12; // lzo1x
-  auto& pool = readerOpts.getMemoryPool();
+  auto& pool = readerOpts.memoryPool();
   curRowkey_ = std::make_unique<DataBuffer<char>>(pool, 512);
   curCol_ = std::make_unique<DataBuffer<char>>(pool, 512);
   readAll_ = (!selector_ || selector_->shouldReadAll());
@@ -50,8 +50,8 @@ void HidiReader::checkSchema() const {
   if (schemaSize_ > 0) {
     LOG(INFO) << "[FileSchema] " << std::string(fileSchema_);
   }
-  if (readerOpts_.getFileSchema()) {
-    LOG(INFO) << "[TableSchema] " << readerOpts_.getFileSchema()->toString();
+  if (readerOpts_.fileSchema()) {
+    LOG(INFO) << "[TableSchema] " << readerOpts_.fileSchema()->toString();
   }
   if (!readAll_) {
     LOG(INFO) << "[OutputSchema] " << selector_->buildSelected()->type()->toString();
@@ -133,7 +133,7 @@ uint64_t HidiReader::next(
 
   // sort output vector by colId
   auto outputType = asRowType(rowVector->type());
-  auto dataType = readerOpts_.getFileSchema();
+  auto dataType = readerOpts_.fileSchema();
   auto& childNames = dataType->names();
   std::vector<VectorPtr> outputVecs;
   std::unordered_map<std::string_view, uint32_t> outputMap;

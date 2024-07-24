@@ -410,21 +410,18 @@ std::vector<TypePtr> SplitReader::adaptColumns(
   return columnTypes;
 }
 
-void SplitReader::resetRowReader(
-    const std::vector<std::shared_ptr<ReadFile>>& files,
-    const dwio::common::ReaderOptions& readerOpts) {
-  auto& fileType = readerOpts.getFileSchema();
+void SplitReader::resetRowReader(const std::vector<std::shared_ptr<ReadFile>>& files) {
+  auto& fileType = baseReaderOpts_.fileSchema();
   auto columnTypes = adaptColumns(fileType, fileType);
-  configureRowReaderOptions(
-      rowReaderOpts_,
-      ROW(std::vector<std::string>(fileType->names()), std::move(columnTypes)));
+  // baseRowReaderOpts_.
+  baseRowReaderOpts_.setRequestedType(ROW(std::vector<std::string>(fileType->names()), std::move(columnTypes)));
   auto readerFactory = dwio::common::getReaderFactory(
-      readerOpts.getFileFormat());
+      baseReaderOpts_.fileFormat());
   // NOTE: we firstly reset the finished 'baseRowReader_' of previous split
   // before setting up for the next one to avoid doubling the peak memory usage.
   baseRowReader_.reset();
   baseRowReader_ = readerFactory->createRowReader(
-      files, readerOpts, rowReaderOpts_, hiveSplit_->customSplitInfo);
+      files, baseReaderOpts_, baseRowReaderOpts_, hiveSplit_->customSplitInfo);
   VELOX_CHECK(baseRowReader_ != nullptr, "Create row reader failed!");
   emptySplit_ = false;
 }
