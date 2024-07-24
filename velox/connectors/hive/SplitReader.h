@@ -102,6 +102,10 @@ class SplitReader {
 
   void resetSplit();
 
+  void resetRowReader(
+      const std::vector<std::shared_ptr<ReadFile>>& files,
+      const dwio::common::ReaderOptions& readerOpts);
+
   int64_t estimatedRowSize() const;
 
   void updateRuntimeStats(dwio::common::RuntimeStatistics& stats) const;

@@ -246,6 +246,49 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
 
   VLOG(1) << "Adding split " << split_->toString();
 
+  if (split_->fileFormat == dwio::common::FileFormat::HIDI) {
+    if (splitReader_) {
+      splitReader_.reset();
+    }
+    splitReader_ = std::make_unique<SplitReader>(
+        split_, readerOutputType_, partitionKeys_, scanSpec_, pool_);
+    readerOpts_.setFileFormat(dwio::common::FileFormat::HIDI);
+    std::vector<std::shared_ptr<ReadFile>> files;
+    // get File list from HiveConnectorSplit
+    std::string dir = split_->customSplitInfo["dir"] + "/";
+    for (auto& [key, value] : split_->customSplitInfo) {
+      if (key.rfind("file_", 0) == 0) {
+        try {
+          files.emplace_back(fileHandleFactory_->generate(dir + value).second->file);
+        } catch (const VeloxException& e) {
+          // Corresponding to HidiKeyValueScanner's rebuildReader
+          LOG(WARNING) << e.message();
+          std::string trashFile = dir + ".HIDI_TRASH/" + value;
+          try {
+            files.emplace_back(fileHandleFactory_->generate(trashFile).second->file);
+          } catch (const VeloxException& e2) {
+            LOG(WARNING) << e2.message();
+            const size_t last_slash_idx = split_->customSplitInfo["dir"].rfind('/');
+            std::string parentDir = dir.substr(0, last_slash_idx);
+            trashFile = parentDir + "/.HIDI_TRASH/" + value;
+            files.emplace_back(fileHandleFactory_->generate(trashFile).second->file);
+          }
+        }
+      }
+    }
+    auto tableParam = hiveTableHandle_->tableParameters().find(
+        dwio::common::TableParameter::kCompactValues);
+    if (tableParam != hiveTableHandle_->tableParameters().end() &&
+        tableParam->second == "false") {
+      split_->customSplitInfo["compactValues"] = "false";
+    }
+    splitReader_->resetRowReader(files, readerOpts_);
+    // should reset output_, or HidiReader::next can't do resize with it
+    output_.reset();
+    output_ = BaseVector::create(readerOutputType_, 0, pool_);
+    return;
+  }
+
   if (splitReader_) {
     splitReader_.reset();
   }

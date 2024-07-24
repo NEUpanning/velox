@@ -60,6 +60,14 @@ class ReaderFactory {
       std::unique_ptr<BufferedInput>,
       const ReaderOptions& options) = 0;
 
+  virtual std::unique_ptr<RowReader> createRowReader(
+      const std::vector<std::shared_ptr<ReadFile>>& files,
+      const dwio::common::ReaderOptions& readerOpts,
+      const dwio::common::RowReaderOptions& options,
+      const std::unordered_map<std::string, std::string>& splitInfo) {
+    return nullptr;
+  }
+
  private:
   const FileFormat format_;
 };
