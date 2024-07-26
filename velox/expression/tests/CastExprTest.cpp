@@ -2063,8 +2063,7 @@ TEST_F(CastExprTest, castInTry) {
 }
 
 TEST_F(CastExprTest, myTestDouble2Decimal) {
-  testComplexCast(
-      "c0",
+  testCast(
       makeFlatVector<double>({0.0, 0.575}),
       makeFlatVector<int128_t>({0, 58}, DECIMAL(20, 2)));
 }
