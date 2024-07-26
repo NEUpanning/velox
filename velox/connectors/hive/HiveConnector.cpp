@@ -38,7 +38,6 @@
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h" // @manual
 #endif
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
-#include "velox/dwio/hidi/reader/HidiReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/orc/reader/OrcReader.h"
 // Meta's buck build system needs this check.
@@ -140,7 +139,6 @@ void HiveConnectorFactory::initialize() {
     dwrf::registerDwrfReaderFactory();
     dwrf::registerDwrfWriterFactory();
     orc::registerOrcReaderFactory();
-    hidi::registerHidiReaderFactory();
 // Meta's buck build system needs this check.
 #ifdef VELOX_ENABLE_PARQUET
     parquet::registerParquetReaderFactory();

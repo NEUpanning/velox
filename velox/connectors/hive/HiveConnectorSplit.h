@@ -88,28 +88,7 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
         extraFileInfo(_extraFileInfo),
         serdeParameters(_serdeParameters),
         infoColumns(_infoColumns),
-        properties(_properties) {
-    if (fileFormat == dwio::common::FileFormat::HIDI) {
-      folly::dynamic splitInfo = folly::parseJson(_filePath);
-      VELOX_CHECK(splitInfo.get_ptr("dir"), "HidiSplit should have dir info!");
-      customSplitInfo.emplace("dir", splitInfo["dir"].asString());
-
-      if (splitInfo.get_ptr("startRow")) {
-        customSplitInfo.emplace("startRow", splitInfo["startRow"].asString());
-      }
-      if (splitInfo.get_ptr("stopRow")) {
-        customSplitInfo.emplace("stopRow", splitInfo["stopRow"].asString());
-      }
-
-      VELOX_CHECK(
-          splitInfo.get_ptr("files"), "HidiSplit should have files info!");
-      int i = 0;
-      std::string fileKey = "file_";
-      for (const auto& file : splitInfo["files"]) {
-        customSplitInfo.emplace(fileKey + std::to_string(i++), file.asString());
-      }
-    }
-  }
+        properties(_properties) {}
 
   std::string toString() const override {
     if (tableBucketNumber.has_value()) {
