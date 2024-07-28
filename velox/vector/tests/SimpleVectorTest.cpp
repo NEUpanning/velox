@@ -698,7 +698,8 @@ class SimpleVectorCompareTest : public SimpleVectorTest {
       if (not vector->isNullAt(indices[i])) {
         v = vector->valueAt(indices[i]);
       }
-      actual.push_back(v);
+      // actual.push_back(v); // FIXME: -Werror=stringop-overflow=
+      actual.emplace_back(v);
     }
     assertVector(
         expected, maker_.encodedVector(VectorEncoding::Simple::FLAT, actual));
