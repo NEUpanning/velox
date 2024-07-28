@@ -1120,11 +1120,16 @@ TEST_F(DateTimeFunctionsTest, timestampToMillis) {
 
 TEST_F(DateTimeFunctionsTest, toDateVarchar) {
   const auto toDateFunc = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int32_t, int32_t>("to_date(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t>("to_date(c0)", DATE(), date);
   };
 
   const auto toDate = [&](const StringView& dateStr) {
-    return toDateFunc(util::castFromDateString(dateStr, false));
+    util::fromDateString(dateStr, util::ParseMode::kSparkCast);
+    return toDateFunc(
+        util::fromDateString(dateStr, util::ParseMode::kSparkCast)
+            .thenOrThrow(folly::identity, [&](const Status& status) {
+              VELOX_USER_FAIL("{}", status.message());
+            }));
   };
 
   auto errorMessage = fmt::format(
@@ -1159,7 +1164,7 @@ TEST_F(DateTimeFunctionsTest, toDateTimestampWithTimezone) {
   static const int64_t kSecondsInDay = 86'400;
 
   const auto toDateFunc = [&](std::optional<int32_t> date) {
-    return evaluateOnce<int32_t, int32_t>("to_date(c0)", {date}, {DATE()});
+    return evaluateOnce<int32_t>("to_date(c0)", DATE(), date);
   };
 
   const auto toDate = [&](const Timestamp& timestamp,
