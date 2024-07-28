@@ -551,7 +551,7 @@ include_directories(SYSTEM velox/external)
 # these were previously vendored in third-party/
 if(NOT VELOX_DISABLE_GOOGLETEST)
   set(gtest_SOURCE AUTO)
-  resolve_dependency(gtest)
+  resolve_dependency(GTest)
   set(VELOX_GTEST_INCUDE_DIR
       "${gtest_SOURCE_DIR}/googletest/include"
       PARENT_SCOPE)
@@ -582,7 +582,21 @@ endif()
 
 if(VELOX_ENABLE_ARROW)
   set_source(Arrow)
-  resolve_dependency(Arrow)
+  # resolve_dependency(Arrow)
+
+  find_package(Thrift REQUIRED)
+  add_library(thrift ALIAS thrift::thrift)
+
+  find_package(Arrow REQUIRED)
+  add_library(arrow INTERFACE)
+  target_link_libraries(arrow INTERFACE Arrow::arrow_static thrift)
+
+  find_package(Parquet REQUIRED)
+  add_library(parquet ALIAS Parquet::parquet_static)
+
+  find_library(ARROW_TESTING_LIB libarrow_testing.a REQUIRED)
+  add_library(arrow_testing STATIC IMPORTED GLOBAL)
+  set_target_properties(arrow_testing PROPERTIES IMPORTED_LOCATION ${ARROW_TESTING_LIB})
 endif()
 
 add_subdirectory(velox)

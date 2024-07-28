@@ -17,3 +17,8 @@ add_library(velox_dwio_common_compression Compression.cpp PagedInputStream.cpp
 
 target_link_libraries(velox_dwio_common_compression velox_dwio_common xsimd
                       Folly::folly)
+
+if(VELOX_ENABLE_ISAL)
+    target_link_libraries(velox_dwio_common_compression ${LIBISAL})
+endif()
+

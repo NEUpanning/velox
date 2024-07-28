@@ -51,7 +51,7 @@ target_link_libraries(
   velox_is_null_functions
   velox_functions_util
   Folly::folly
-  simdjson)
+  simdjson::simdjson)
 
 set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
                                                    high_memory_pool)
