@@ -115,6 +115,11 @@ HiveDataSource::HiveDataSource(
     randomSkip_ = std::make_shared<random::RandomSkipTracker>(sampleRate);
   }
 
+  // HIDI don't support Filter pushdown yet
+  if (!hiveTableHandle_->isFilterPushdownEnabled()) {
+    remainingFilter = hiveTableHandle_->remainingFilter();
+  }
+
   std::vector<common::Subfield> remainingFilterSubfields;
   if (remainingFilter) {
     remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
@@ -261,6 +266,12 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   // so we initialize it beforehand.
   splitReader_->configureReaderOptions(randomSkip_);
   splitReader_->prepareSplit(metadataFilter_, runtimeStats_, rowIndexColumn_);
+
+  if (split_->fileFormat == dwio::common::FileFormat::HIDI) {
+    // should reset output_, or HidiReader::next can't do resize with it
+    output_.reset();
+    output_ = BaseVector::create(readerOutputType_, 0, pool_);
+  }
 }
 
 vector_size_t HiveDataSource::applyBucketConversion(

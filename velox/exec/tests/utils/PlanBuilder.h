@@ -151,7 +151,8 @@ class PlanBuilder {
       const RowTypePtr& dataColumns = nullptr,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<connector::ColumnHandle>>& assignments = {});
+          std::shared_ptr<connector::ColumnHandle>>& assignments = {},
+      bool filterPushdown = true);
 
   /// Add a TableScanNode to scan a TPC-H table.
   ///
@@ -260,6 +261,11 @@ class PlanBuilder {
       return *this;
     }
 
+    TableScanBuilder& filterPushdown(bool filterPushdown) {
+      filterPushdown_ = filterPushdown;
+      return *this;
+    }
+
     /// Stop the TableScanBuilder.
     PlanBuilder& endTableScan() {
       planBuilder_.planNode_ = build(planBuilder_.nextPlanNodeId());
@@ -281,6 +287,7 @@ class PlanBuilder {
     std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
         assignments_;
+    bool filterPushdown_;
   };
 
   /// Start a TableScanBuilder.

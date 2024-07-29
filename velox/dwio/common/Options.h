@@ -49,6 +49,7 @@ enum class FileFormat {
   PARQUET = 7,
   NIMBLE = 8,
   ORC = 9,
+  HIDI = 10,
 };
 
 FileFormat toFileFormat(std::string_view s);
@@ -106,6 +107,7 @@ struct TableParameter {
   /// string.
   static constexpr const char* kSerializationNullFormat =
       "serialization.null.format";
+  static constexpr const char* kCompactValues = "hidi.compact_values";
 };
 
 struct RowNumberColumnInfo {

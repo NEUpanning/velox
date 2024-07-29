@@ -22,6 +22,7 @@
 #include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergSplitReader.h"
+#include "velox/connectors/hive/HidiSplitReader.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/type/TimestampConversion.h"
@@ -79,6 +80,18 @@ std::unique_ptr<SplitReader> SplitReader::create(
   if (hiveSplit->customSplitInfo.count("table_format") > 0 &&
       hiveSplit->customSplitInfo["table_format"] == "hive-iceberg") {
     return std::make_unique<iceberg::IcebergSplitReader>(
+        hiveSplit,
+        hiveTableHandle,
+        partitionKeys,
+        connectorQueryCtx,
+        hiveConfig,
+        readerOutputType,
+        ioStats,
+        fileHandleFactory,
+        executor,
+        scanSpec);
+  } else if (hiveSplit->fileFormat == dwio::common::FileFormat::HIDI) {
+    return std::make_unique<hidi::HidiSplitReader>(
         hiveSplit,
         hiveTableHandle,
         partitionKeys,

@@ -11,27 +11,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(velox_link_libs INTERFACE)
-target_link_libraries(
-  velox_link_libs
-  INTERFACE velox_caching
-            velox_dwio_catalog_fbhive
-            velox_dwio_common
-            velox_dwio_common_exception
-            velox_encode
-            velox_exception
-            velox_memory
-            velox_process
-            velox_serialization
-            velox_type
-            velox_type_fbhive
-            velox_vector
-            Folly::folly
-            fmt::fmt)
 
-add_subdirectory(common)
-add_subdirectory(catalog)
-add_subdirectory(dwrf)
-add_subdirectory(orc)
-add_subdirectory(parquet)
-add_subdirectory(hidi)
+add_executable(velox_hidi_query HidiQuery.cpp)
+target_link_libraries(
+  velox_hidi_query
+  velox_type
+  velox_vector
+  velox_exec
+  velox_exec_test_lib
+  velox_hive_connector
+  velox_dwio_hidi_reader
+  velox_memory
+  velox_vector_test_lib)
+
+add_executable(velox_scan_hfile ScanHFile.cpp)
+target_link_libraries(
+  velox_scan_hfile
+  velox_hdfs
+  velox_hive_connector
+  velox_dwio_hidi_reader
+  velox_memory)
+
+add_executable(velox_scan_hfiles ScanHFiles.cpp)
+target_link_libraries(
+  velox_scan_hfiles
+  velox_exec_test_lib
+  velox_hdfs
+  velox_hive_connector
+  velox_dwio_hidi_reader
+  velox_memory)
