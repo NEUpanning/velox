@@ -169,7 +169,7 @@ struct UnixTimestampParseFunction {
     parseMode = ParseMode::kLegacy;
    }
     auto dateTimeResult =
-        format_->parse(std::string_view(input.data(), input.size(), parseMode));
+        format_->parse(std::string_view(input.data(), input.size()), parseMode);
     // Return null if could not parse.
     if (dateTimeResult.hasError()) {
       return false;
