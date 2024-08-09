@@ -48,13 +48,13 @@ std::optional<size_t> HidiReader::estimatedRowSize() const {
 
 void HidiReader::checkSchema() const {
   if (schemaSize_ > 0) {
-    LOG(INFO) << "[FileSchema] " << std::string(fileSchema_);
+    LOG(WARNING) << "[FileSchema] " << std::string(fileSchema_);
   }
   if (readerOpts_.fileSchema()) {
-    LOG(INFO) << "[TableSchema] " << readerOpts_.fileSchema()->toString();
+    LOG(WARNING) << "[TableSchema] " << readerOpts_.fileSchema()->toString();
   }
   if (!readAll_) {
-    LOG(INFO) << "[OutputSchema] " << selector_->buildSelected()->type()->toString();
+    LOG(WARNING) << "[OutputSchema] " << selector_->buildSelected()->type()->toString();
   }
 }
 
@@ -196,7 +196,8 @@ bool HidiReader::seek(const Scan& scan) {
   for (auto& reader : hfileReaders) {
     if (!reader->seek(scan) || !reader->next()) {
       LOG(WARNING) << "Skip " << reader->getFileName()
-                   << ", since it does't contain the rang key.";
+                   << ", since it does't contain the key rang("
+                   << scan.startKey << " ~ " << scan.endKey << ")";
       continue;
     }
     if (!mismatch) {

@@ -95,7 +95,7 @@ void HidiSplitReader::prepareSplit(
   auto& fileType = baseReaderOpts_.fileSchema();
   auto columnTypes = adaptColumns(fileType, fileType);
   auto rowType = ROW(std::vector<std::string>(fileType->names()), std::move(columnTypes));
-  LOG(INFO) << "[AdaptedSchema] " << rowType->toString();
+  LOG(WARNING) << "[AdaptedSchema] " << rowType->toString();
   std::vector<std::string> columnNames;
   for (auto& spec : scanSpec_->children()) {
     if (!spec->isConstant()) {
@@ -122,10 +122,10 @@ void HidiSplitReader::prepareSplit(
     scan.endKey = splitInfo["stopRow"].asString();
   }
   if (hidiReader->seek(scan)) {
-    LOG(INFO) << "Construct HidiReader with " << files.size()
-              << " HFiles, compactValues is " << (compactValues ? "true" : "false")
-              << ", startKey is '" << scan.startKey
-              << "', endKey is '" << scan.endKey << "'.";
+    LOG(WARNING) << "Construct HidiReader with " << files.size()
+                 << " HFiles, compactValues is " << (compactValues ? "true" : "false")
+                 << ", startKey is '" << scan.startKey
+                 << "', endKey is '" << scan.endKey << "'.";
   }
   baseRowReader_ = std::move(hidiReader);
   VELOX_CHECK(baseRowReader_ != nullptr, "Create row reader failed!");

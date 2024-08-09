@@ -230,7 +230,7 @@ bool HFileReader::loadFirstBlock() {
   endOffset_ += KHeaderSize;
 
   if (!nextDataBlock_) { // multi-level index
-    LOG(INFO) << "target hfile " << fileName_ << " has multi-levels";
+    LOG(WARNING) << "target hfile " << fileName_ << " has multi-levels";
     int32_t compressedSize = getNumber<int32_t>(blockHeader + KCompressedSizeOff);
     int32_t uncompressedSize = getNumber<int32_t>(blockHeader + KUncompressedSizeOff);
     if (endOffset_ != rootIndexOffset_ + KHeaderSize) {
@@ -246,7 +246,7 @@ bool HFileReader::loadFirstBlock() {
     loadDataBlock(startOffset_, compressedSize, uncompressedSize);
   }
 
-  LOG(INFO) << fileName_ << " read range determined, start offset "
+  LOG(WARNING) << fileName_ << " read range determined, start offset "
             << startOffset_ << ", end offset " << endOffset_;
   return true;
 }
@@ -340,7 +340,7 @@ bool HFileReader::seek(const Scan& scan) {
   const char* blockData = blockBuffer->data();
 
   bool startDone = startKey_.empty() ? true : false;
-  bool endDone = endKey_.empty() ? true : false;
+  bool endKeyEmpty = endKey_.empty();
   int32_t index = 0;
   while (index < uncompressedSize) {
     int64_t offset = getNumber<int64_t>(blockData, index);
@@ -357,25 +357,27 @@ bool HFileReader::seek(const Scan& scan) {
         if (res == 0) {
           startOffset_ = offset;
         }
-        if (endDone) {
+        if (endKeyEmpty) {
           break;
         }
       }
     }
-    if (!endDone) {
+    if (!endKeyEmpty) {
       int res = compareTo(rowkey.data() + KRowKeyOffset, rowLen,
           endKey_.data(), endKey_.size());
-      if (res < 0) { // endKey after currentKey
+      if (res <= 0) { // endKey after or equal currentKey
         endOffset_ = offset;
-      } else {
-        if (res == 0) {
-          endOffset_ = offset;
+      } else { // endKey before currentKey
+        if (endOffset_ == rootIndexOffset_) {
+          LOG(WARNING) << "skip " << fileName_ << " since there is no data in target key range("
+                       << startKey_ << " ~ " << endKey_ << ")";
+          return false;
         }
-        break;
+        break; // range determined
       }
     }
   }
-  return startDone ? loadFirstBlock() : false;
+  return loadFirstBlock();
 }
 
 bool HFileReader::next() {
@@ -427,12 +429,13 @@ bool HFileReader::next() {
     if (needCompareEndkey_ &&
         compareTo(cell_.rowkey, cell_.rowkeyLen,
             endKey_.data(), endKey_.size()) > 0) {
-      LOG(INFO) << "currentKey after endKey, " << fileName_ << " reach end.";
+      LOG(WARNING) << "currentKey " << std::string(cell_.rowkey, cell_.rowkeyLen)
+                   << " after endKey " << endKey_ << ", " << fileName_ << " reach end.";
       return false;
     }
     return true;
   }
-  LOG(INFO) << "target HFile " << fileName_ << " reach end.";
+  LOG(WARNING) << "target HFile " << fileName_ << " reach end.";
   return false; // reach end
 }
 
