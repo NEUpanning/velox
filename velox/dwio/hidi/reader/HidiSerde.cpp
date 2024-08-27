@@ -334,14 +334,40 @@ bool HidiSerde::deserializeColumn(DeserializeContext& context) const {
       double val = convertor.double_bits;
       return saveToVector<kReadAll, double>(context, val);
     }
-    // TODO chenxu14 test escape char
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY: {
       const char* colBuff = context.buff + context.bufIdx;
-      auto len = strlen(colBuff);
-      StringView val(colBuff, len);
-      context.bufIdx += (len + 1/*skip '\0'*/);
-      return saveToVector<kReadAll, StringView>(context, val);
+      // coresponding to HidiStructObject's deserializeText
+      int length = 0;
+      int index = 0;
+      do {
+        char b = colBuff[index++];
+        if (b == 0) {
+          break; // end of string
+        }
+        if (b == 1) {
+          index++; // the last char is an escape char. read the actual char
+        }
+        length++;
+      } while (true);
+
+      context.bufIdx += index;
+      if (length == index - 1) {
+        return saveToVector<kReadAll, StringView>(context, StringView(colBuff, length));
+      } else {
+        std::vector<char> rdata(length);
+        index = 0;
+        for (int i = 0; i < length; i++) {
+          char b = colBuff[index++];
+          if (b == 1) {
+            // The serialization format escape \0 to \1, and \1 to \2,
+            // to make sure the string is null-terminated.
+            b = colBuff[index++] - 1;
+          }
+          rdata[i] = b;
+        }
+        return saveToVector<kReadAll, StringView>(context, StringView(&rdata[0], length));
+      }
     }
     // Corresponding to TimestampWritable::setBinarySortable
     case TypeKind::TIMESTAMP: {

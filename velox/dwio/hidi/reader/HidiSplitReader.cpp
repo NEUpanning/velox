@@ -41,7 +41,8 @@ HidiSplitReader::HidiSplitReader(
           ioStats,
           fileHandleFactory,
           executor,
-          scanSpec) {}
+          scanSpec),
+      hasConstantColumn_(false) {}
 
 void HidiSplitReader::prepareSplit(
     std::shared_ptr<common::MetadataFilter> metadataFilter,
@@ -100,6 +101,9 @@ void HidiSplitReader::prepareSplit(
   for (auto& spec : scanSpec_->children()) {
     if (!spec->isConstant()) {
       columnNames.push_back(spec->fieldName());
+    } else {
+      LOG(WARNING) << "column " << spec->fieldName() << " is constant.";
+      hasConstantColumn_ = true;
     }
   }
   std::shared_ptr<dwio::common::ColumnSelector> selector;
@@ -130,6 +134,22 @@ void HidiSplitReader::prepareSplit(
   baseRowReader_ = std::move(hidiReader);
   VELOX_CHECK(baseRowReader_ != nullptr, "Create row reader failed!");
   emptySplit_ = false;
+}
+
+uint64_t HidiSplitReader::next(uint64_t size, VectorPtr& output) {
+  uint64_t numValues = baseRowReader_->next(size, output);
+  if (hasConstantColumn_) {
+    auto rowVector = std::dynamic_pointer_cast<RowVector>(output);
+    auto& childSpecs = scanSpec_->children();
+    for (auto& childSpec : childSpecs) {
+      if (childSpec->isConstant()) {
+        auto channel = childSpec->channel();
+        rowVector->childAt(channel) = BaseVector::wrapInConstant(
+            numValues, 0, childSpec->constantValue());
+      }
+    }
+  }
+  return numValues;
 }
 
 } // namespace facebook::velox::connector::hive::hidi

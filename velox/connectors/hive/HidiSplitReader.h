@@ -48,5 +48,10 @@ class HidiSplitReader : public SplitReader {
       dwio::common::RuntimeStatistics& runtimeStats,
       const std::shared_ptr<HiveColumnHandle>& rowIndexColumn) override;
 
+  uint64_t next(uint64_t size, VectorPtr& output) override;
+
+ private:
+  bool hasConstantColumn_;
+
 };
 } // namespace facebook::velox::connector::hive::hidi

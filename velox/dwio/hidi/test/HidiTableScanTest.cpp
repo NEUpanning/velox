@@ -193,6 +193,64 @@ TEST_F(HidiTableScanTest, complexSplitValue) {
       {"c2"}/*outCols*/, {}/*groupingKeys*/, {}/*aggregates*/, {"map_values(c2)"});
 }
 
+TEST_F(HidiTableScanTest, partitionColumn) {
+  std::string schema = "struct<"
+      "c0:INT,c1:BIGINT,c2:STRING,c3:BOOLEAN,c4:TINYINT,c5:SMALLINT,"
+      "c6:FLOAT,c7:DOUBLE,c8:BINARY,c9:TIMESTAMP,c10:DATE,c11:DECIMAL(10,2)>";
+  auto rowType = asRowType(type::fbhive::HiveTypeParser().parse(schema));
+  auto outputType = asRowType(type::fbhive::HiveTypeParser().parse("struct<dt:STRING,c1:BIGINT>"));
+  std::shared_ptr<folly::Executor> executor(
+      std::make_shared<folly::CPUThreadPoolExecutor>(std::thread::hardware_concurrency()));
+  auto dtType = outputType->childAt(0);
+  auto c1Type = outputType->childAt(1);
+  // Specify dt as Partition Column
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>> assignments{
+      {"dt", std::make_shared<HiveColumnHandle>("dt", HiveColumnHandle::ColumnType::kPartitionKey, dtType, dtType)},
+      {"c1", std::make_shared<HiveColumnHandle>("c1", HiveColumnHandle::ColumnType::kRegular, c1Type, c1Type)},
+  };
+  core::PlanNodeId scanNodeId;
+  auto readPlanFragment = exec::test::PlanBuilder()
+      .tableScan(
+          "hive_table",
+          outputType,
+          {}/*columnAliases*/,
+          {}/*subfieldFilters*/,
+          ""/*remainingFilter*/,
+          rowType/*schema*/,
+          assignments,
+          false/*filterPushdown*/)
+      .capturePlanNodeId(scanNodeId)
+      .planFragment();
+  auto readTask = exec::Task::create(
+      "my_read_task",
+      readPlanFragment,
+      /*destination=*/0,
+      core::QueryCtx::create(executor.get()),
+      exec::Task::ExecutionMode::kSerial);
+
+  std::string filePath = getExampleFilePath("primitive_mysqlv2");
+  const size_t last_slash_idx = filePath.rfind('/');
+  std::string dir = filePath.substr(0, last_slash_idx);
+  std::string file = filePath.substr(last_slash_idx + 1);
+  std::string splitInfo = "{\"dir\":\"file:" + dir + "\", \"files\":[\""+ file + "\"]}";
+  // Specify Partition Column Value
+  std::unordered_map<std::string, std::optional<std::string>> partitionKeys = {
+      {"dt", "2024-08-26"}
+  };
+  auto connectorSplit = std::make_shared<HiveConnectorSplit>(
+      kHiveConnectorId, splitInfo, dwio::common::FileFormat::HIDI, 0/*start*/, 0/*length*/, partitionKeys);
+  readTask->addSplit(scanNodeId, exec::Split{connectorSplit});
+  readTask->noMoreSplits(scanNodeId);
+  RowVectorPtr rows = readTask->next();
+  EXPECT_TRUE(rows != nullptr);
+  while (rows) {
+    for (int i = 0; i < rows->size(); i++) {
+      EXPECT_EQ("2024-08-26", rows->childAt(0)->toString(i));
+    }
+    rows = readTask->next();
+  }
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv, false};
