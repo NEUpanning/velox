@@ -38,6 +38,10 @@ class AggregationHook : public ValueHook {
   static constexpr Kind kDoubleMax = 9;
   static constexpr Kind kDoubleMin = 10;
   static constexpr Kind kSumBigintToBigintOverflow = 11;
+  static constexpr Kind kSumHugeintToHugeint = 12;
+  static constexpr Kind kSumHugeintToHugeintOverflow = 13;
+  static constexpr Kind kHugeintMax = 14;
+  static constexpr Kind kHugeintMin = 15;
 
   // Make null behavior known at compile time. This is useful when
   // templating a column decoding loop with a hook.
@@ -151,6 +155,13 @@ class SumHook final : public AggregationHook {
         }
         return kSumBigintToBigint;
       }
+    } else if (std::is_same_v<TAggregate, int128_t>) {
+      if (std::is_same_v<TValue, int128_t>) {
+        if (Overflow) {
+          return kSumHugeintToHugeintOverflow;
+        }
+        return kSumHugeintToHugeint;
+      }
     }
     return kGeneric;
   }
@@ -215,6 +226,9 @@ class MinMaxHook final : public AggregationHook {
       if (std::is_same_v<T, double>) {
         return kDoubleMin;
       }
+      if (std::is_same_v<T, int128_t>) {
+        return kHugeintMin;
+      }
     } else {
       if (std::is_same_v<T, int64_t>) {
         return kBigintMax;
@@ -224,6 +238,9 @@ class MinMaxHook final : public AggregationHook {
       }
       if (std::is_same_v<T, double>) {
         return kDoubleMax;
+      }
+      if (std::is_same_v<T, int128_t>) {
+        return kHugeintMax;
       }
     }
     return kGeneric;
