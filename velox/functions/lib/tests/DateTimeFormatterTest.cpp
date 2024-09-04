@@ -1344,6 +1344,34 @@ TEST_F(JodaDateTimeFormatterTest, betterErrorMessaging) {
       "Value 429 for dayOfMonth must be in the range [1,365] for year 2057 and month 2.");
 }
 
+TEST_F(JodaDateTimeFormatterTest, formatWeekYear) {
+  DateTimeFormatterBuilder builder(10);
+  auto formatter = builder.appendWeekYear(4)
+    .setType(DateTimeFormatterType::JODA)
+    .build();
+  auto* timezone = date::locate_zone("GMT");
+  const auto maxSize = formatter->maxResultSize(timezone);
+
+  auto weekYear = [&](const StringView& time) {
+    std::string result(maxSize, '\0');
+    auto resultSize = formatter->format(
+        fromTimestampString(time), timezone, maxSize, result.data());
+    result.resize(resultSize);
+    return result;
+  };
+
+  EXPECT_EQ(weekYear("2020-12-26 00:00:00"), "2020");
+  EXPECT_EQ(weekYear("2020-12-27 00:00:00"), "2021");
+  EXPECT_EQ(weekYear("2021-12-25 00:00:00"), "2021");
+  EXPECT_EQ(weekYear("2021-12-26 00:00:00"), "2022");
+  EXPECT_EQ(weekYear("2022-01-01 00:00:00"), "2022");
+  EXPECT_EQ(weekYear("2022-12-31 00:00:00"), "2022");
+  EXPECT_EQ(weekYear("2023-01-01 00:00:00"), "2023");
+  EXPECT_EQ(weekYear("2023-12-30 00:00:00"), "2023");
+  EXPECT_EQ(weekYear("2023-12-31 00:00:00"), "2024");
+}
+
+
 class MysqlDateTimeTest : public DateTimeFormatterTest {};
 
 TEST_F(MysqlDateTimeTest, validBuild) {

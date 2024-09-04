@@ -1014,6 +1014,7 @@ uint32_t DateTimeFormatter::maxResultSize(
         size += 2;
         break;
       case DateTimeFormatSpecifier::YEAR_OF_ERA:
+      case DateTimeFormatSpecifier::WEEK_YEAR:
         // Timestamp is in [-32767-01-01, 32767-12-31] range.
         size += std::max((int)token.pattern.minRepresentDigits, 6);
         break;
@@ -1067,7 +1068,6 @@ uint32_t DateTimeFormatter::maxResultSize(
         size += 9;
         break;
       // Not supported.
-      case DateTimeFormatSpecifier::WEEK_YEAR:
       case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
       default:
         VELOX_UNSUPPORTED(
@@ -1319,7 +1319,28 @@ int32_t DateTimeFormatter::format(
           result += appendTimezoneOffset(offset, result);
           break;
         }
-        case DateTimeFormatSpecifier::WEEK_YEAR:
+        case DateTimeFormatSpecifier::WEEK_YEAR: {
+          auto year = calDate.year();
+          auto weekdayNum = weekday.c_encoding();
+          auto firstDayOfTheYear = date::year_month_day(
+              calDate.year(), date::month(1), date::day(1));
+          auto dayOfYear =
+              (date::sys_days{calDate} - date::sys_days{firstDayOfTheYear})
+                  .count() +
+              1;
+
+          if (dayOfYear + (6 - weekdayNum) > (year.is_leap() ? 366 : 365))
+            year++;
+
+          result += padContent(
+              static_cast<signed>(year),
+              '0',
+              token.pattern.minRepresentDigits,
+              maxResultEnd,
+              result);
+
+          break;
+        }
         case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
         default:
           VELOX_UNSUPPORTED(
@@ -1616,15 +1637,12 @@ std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
           builder.appendCenturyOfEra(count);
           break;
         case 'Y':
-          builder.appendYearOfEra(count);
-          break;
-        case 'x':
           builder.appendWeekYear(count);
           break;
         case 'w':
           builder.appendWeekOfWeekYear(count);
           break;
-        case 'e':
+        case 'u':
           builder.appendDayOfWeek1Based(count);
           break;
         case 'E':
