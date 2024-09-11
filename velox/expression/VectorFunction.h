@@ -210,7 +210,8 @@ getVectorFunctionWithMetadata(
     const std::string& name,
     const std::vector<TypePtr>& inputTypes,
     const std::vector<VectorPtr>& constantInputs,
-    const core::QueryConfig& config);
+    const core::QueryConfig& config,
+    const TypePtr resultType = nullptr);
 
 /// Registers stateless VectorFunction. The same instance will be used for all
 /// expressions.

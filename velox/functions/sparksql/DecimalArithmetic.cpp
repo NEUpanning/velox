@@ -520,9 +520,20 @@ class Multiply {
     if (rPrecision < 38) {
       R result = DecimalUtil::multiply<R>(R(a), R(b), overflow);
       VELOX_DCHECK(!overflow);
-      r = DecimalUtil::multiply<R>(
+      // r = DecimalUtil::multiply<R>(
+      //     result,
+      //     R(velox::DecimalUtil::kPowersOfTen[aRescale + bRescale]),
+      //     overflow);
+      // VELOX_DCHECK(!overflow);
+      // The scale of a * b is aScale + bScale, but rScale != (aScale + bScale) because it
+      // is computed using the original type and aScale and bScale is the type after promoting
+      // precision.
+      auto deltaScale = aScale + bScale - rScale;
+      DecimalUtil::divideWithRoundUp<R, R, R>(
+          r,
           result,
-          R(velox::DecimalUtil::kPowersOfTen[aRescale + bRescale]),
+          R(velox::DecimalUtil::kPowersOfTen[deltaScale]),
+          0,
           overflow);
       VELOX_DCHECK(!overflow);
     } else if (a == 0 && b == 0) {
@@ -742,16 +753,13 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& config) {
+  VELOX_CHECK_EQ(inputArgs.size(), 3, "createDecimalFunction's inputArgs' size should be 3.");
   const auto& aType = inputArgs[0].type;
   const auto& bType = inputArgs[1].type;
+  const auto& rType = inputArgs[2].type;
   const auto [aPrecision, aScale] = getDecimalPrecisionScale(*aType);
   const auto [bPrecision, bScale] = getDecimalPrecisionScale(*bType);
-  const auto [rPrecision, rScale] = Operation::computeResultPrecisionScale(
-      aPrecision,
-      aScale,
-      bPrecision,
-      bScale,
-      config.sparkDecimalOperationsAllowPrecisionLoss());
+  const auto [rPrecision, rScale] = getDecimalPrecisionScale(*rType);
   const uint8_t aRescale =
       Operation::computeRescaleFactor(aScale, bScale, rScale);
   const uint8_t bRescale =

@@ -125,7 +125,8 @@ getVectorFunctionWithMetadata(
     const std::string& name,
     const std::vector<TypePtr>& inputTypes,
     const std::vector<VectorPtr>& constantInputs,
-    const core::QueryConfig& config) {
+    const core::QueryConfig& config,
+    const TypePtr resultType) {
   if (!constantInputs.empty()) {
     VELOX_CHECK_EQ(inputTypes.size(), constantInputs.size());
   }
@@ -141,7 +142,9 @@ getVectorFunctionWithMetadata(
           exec::SignatureBinder binder(*signature, inputTypes);
           if (binder.tryBind()) {
             auto inputArgs = toVectorFunctionArgs(inputTypes, constantInputs);
-
+            if (resultType != nullptr) {
+              inputArgs.push_back({resultType, nullptr});
+            }
             return {
                 {entry.factory(sanitizedName, inputArgs, config),
                  entry.metadata}};

@@ -412,7 +412,8 @@ ExprPtr compileRewrittenExpression(
             call->name(),
             inputTypes,
             getConstantInputs(compiledInputs),
-            config)) {
+            config,
+            resultType->isDecimal() ? resultType : nullptr)) {
       result = std::make_shared<Expr>(
           resultType,
           std::move(compiledInputs),
