@@ -562,7 +562,7 @@ TEST_F(RegexFunctionsTest, regexpReplaceCacheLimitTest) {
 
   VELOX_ASSERT_THROW(
       testingRegexpReplaceRows(strings, patterns, replaces),
-      "regexp_replace hit the maximum number of unique regexes: 20");
+      "Max number of regex reached");
 }
 
 TEST_F(RegexFunctionsTest, regexpReplaceCacheMissLimit) {
@@ -586,5 +586,14 @@ TEST_F(RegexFunctionsTest, regexpReplaceCacheMissLimit) {
   auto output = convertOutput(expectedOutputs, 3);
   assertEqualVectors(result, output);
 }
+
+TEST_F(RegexFunctionsTest, regexpReplacePreprocessReplacement) {
+     // $1 -> \1
+     // select regexp_replace("bdztlszhxz_44","(.*)(_)([0-9]+$)","$1$2")
+  std::string output = "bdztlszhxz_";
+  auto result = testRegexpReplace("bdztlszhxz_44", "(.*)(_)([0-9]+$)", "$1$2");
+  EXPECT_EQ(result, output);
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql
