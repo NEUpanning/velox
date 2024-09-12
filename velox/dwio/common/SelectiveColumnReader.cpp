@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/common/SelectiveColumnReaderInternal.h"
+#include <iostream>
 
 namespace facebook::velox::dwio::common {
 
@@ -92,10 +93,12 @@ void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
 
 void SelectiveColumnReader::initReturnReaderNulls(RowSet rows) {
   if (useBulkPath() && !scanSpec_->hasFilter()) {
+    std::cout<<"panning useBulkPath and has no filter"<<std::endl;
     anyNulls_ = nullsInReadRange_ != nullptr;
     bool isDense = rows.back() == rows.size() - 1;
     returnReaderNulls_ = anyNulls_ && isDense;
   } else {
+    std::cout<<"panning not bulk path"<<std::endl;
     returnReaderNulls_ = false;
   }
 }
@@ -110,6 +113,7 @@ void SelectiveColumnReader::prepareNulls(
   }
   initReturnReaderNulls(rows);
   if (returnReaderNulls_) {
+    std::cout<<"panning returnReaderNulls_ is true"<<std::endl;
     // No need for null flags if fast path.
     return;
   }
@@ -126,6 +130,7 @@ void SelectiveColumnReader::prepareNulls(
   // Clear whole capacity because future uses could hit uncleared data between
   // capacity() and 'numBytes'.
   simd::memset(rawResultNulls_, bits::kNotNullByte, resultNulls_->capacity());
+  std::cout<<"panning allocate rawResultNulls_"<<std::endl;
 }
 
 const uint64_t* SelectiveColumnReader::shouldMoveNulls(RowSet rows) {

@@ -26,6 +26,7 @@
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/FlatVector.h"
+#include <iostream>
 
 #include <numeric>
 
@@ -53,6 +54,7 @@ void SelectiveColumnReader::ensureValuesCapacity(vector_size_t numRows) {
   values_ = AlignedBuffer::allocate<T>(
       numRows + (simd::kPadding / sizeof(T)), &memoryPool_);
   rawValues_ = values_->asMutable<char>();
+  std::cout<<"panning allocate rawValues_"<<std::endl;
 }
 
 template <typename T>
@@ -105,6 +107,7 @@ void SelectiveColumnReader::prepareRead(
   if (scanSpec_->keepValues() && !scanSpec_->valueHook()) {
     valueRows_.clear();
     prepareNulls(rows, nullsInReadRange_ != nullptr);
+    std::cout<<"panning prepareNulls"<<std::endl;
   }
 }
 

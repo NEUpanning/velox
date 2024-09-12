@@ -322,6 +322,11 @@ class SelectiveColumnReader {
 
   template <typename T>
   inline void addNull() {
+    std::cout << "panning rawResultNulls_ is null=" +
+            (rawResultNulls_ == nullptr)
+              << std::endl;
+    std::cout << "panning rawValues_ is null=" + (rawValues_ == nullptr)
+              << std::endl;
     VELOX_DCHECK_NE(valueSize_, kNoValueSize);
     VELOX_DCHECK(rawResultNulls_ && rawValues_);
     VELOX_DCHECK_LE((numValues_ + 1) * valueSize_, values_->capacity());
