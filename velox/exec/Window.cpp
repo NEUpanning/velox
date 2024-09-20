@@ -197,6 +197,9 @@ void Window::createWindowFunctions() {
 // Support 'rank', 'dense_rank' and
 // 'row_number' functions and the agg window function with default frame.
 bool Window::supportRowsStreaming() {
+  // FIXME: Temporarily disable rows streaming because https://github.com/oap-project/velox/pull/499 is not ready to merge
+  return false;
+
   bool supportsStreaming = false;
 
   for (const auto& windowNodeFunction : windowNode_->windowFunctions()) {
