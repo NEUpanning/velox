@@ -2343,16 +2343,16 @@ TEST_F(SimpleDateTimeFormatterTest, parseSimpleWeekOfMonth) {
     // Format contains year, month, weekOfMonth and dayOfWeek.
     EXPECT_EQ(
         fromTimestampString("2024-08-02"),
-        parseSimple("2024 08 01 5", "yyyy MM WW e", lenient).timestamp);
+        parseSimple("2024 08 01 5", "yyyy MM WW u", lenient).timestamp);
     EXPECT_EQ(
         fromTimestampString("2024-08-03"),
-        parseSimple("2024 08 01 6", "yyyy MM WW e", lenient).timestamp);
+        parseSimple("2024 08 01 6", "yyyy MM WW u", lenient).timestamp);
     EXPECT_EQ(
         fromTimestampString("2024-08-09"),
-        parseSimple("2024 08 02 5", "yyyy MM WW e", lenient).timestamp);
+        parseSimple("2024 08 02 5", "yyyy MM WW u", lenient).timestamp);
     EXPECT_EQ(
         fromTimestampString("2024-08-12"),
-        parseSimple("2024 08 03 1", "yyyy MM WW e", lenient).timestamp);
+        parseSimple("2024 08 03 1", "yyyy MM WW u", lenient).timestamp);
 
     // Format contains year, month and weekOfMonth.
     EXPECT_EQ(
@@ -2373,25 +2373,25 @@ TEST_F(SimpleDateTimeFormatterTest, parseSimpleWeekOfMonth) {
   // Field out of range for lenient mode.
   EXPECT_EQ(
       fromTimestampString("2024-09-30"),
-      parseSimple("2024 08 10 1", "yyyy MM WW e", true).timestamp);
+      parseSimple("2024 08 10 1", "yyyy MM WW u", true).timestamp);
   EXPECT_EQ(
       fromTimestampString("2024-07-28"),
       parseSimple("2024 08 01", "yyyy MM WW", true).timestamp);
   EXPECT_EQ(
       fromTimestampString("2025-02-24"),
-      parseSimple("2024 15 01 1", "yyyy MM WW e", true).timestamp);
+      parseSimple("2024 15 01 1", "yyyy MM WW u", true).timestamp);
   EXPECT_EQ(
       fromTimestampString("2024-07-29"),
-      parseSimple("2024 08 01 9", "yyyy MM WW e", true).timestamp);
+      parseSimple("2024 08 01 9", "yyyy MM WW u", true).timestamp);
 
   // Field out of range for strict mode.
   EXPECT_THROW(
-      parseSimple("2024 08 10 1", "yyyy MM WW e", false), VeloxUserError);
+      parseSimple("2024 08 10 1", "yyyy MM WW u", false), VeloxUserError);
   EXPECT_THROW(parseSimple("2024 08 10", "yyyy MM WW", false), VeloxUserError);
   EXPECT_THROW(
-      parseSimple("2024 15 01 1", "yyyy MM WW e", false), VeloxUserError);
+      parseSimple("2024 15 01 1", "yyyy MM WW u", false), VeloxUserError);
   EXPECT_THROW(
-      parseSimple("2024 08 01 9", "yyyy MM WW e", false), VeloxUserError);
+      parseSimple("2024 08 01 9", "yyyy MM WW u", false), VeloxUserError);
 }
 
 TEST_F(SimpleDateTimeFormatterTest, formatResultSize) {
@@ -2424,6 +2424,71 @@ TEST_F(SimpleDateTimeFormatterTest, formatWeekOfMonth) {
         formatSimpleDateTime(
             "W", fromTimestampString("2024-08-30"), timezone, lenient),
         "5");
+  }
+}
+
+TEST_F(SimpleDateTimeFormatterTest, invalidSimpleBuild) {
+  // Invalid specifiers
+  for (bool lenient : {true, false}) {
+    EXPECT_THROW(buildSimpleDateTimeFormatter("C", lenient), VeloxUserError);
+    EXPECT_THROW(buildSimpleDateTimeFormatter("x", lenient), VeloxUserError);
+    EXPECT_THROW(buildSimpleDateTimeFormatter("e", lenient), VeloxUserError);
+  }
+}
+
+TEST_F(SimpleDateTimeFormatterTest, parseSimpleMonthOfYear) {
+  for (bool lenient : {true, false}) {
+    for (std::string monthSpecifier : {"MM", "LL"}) {
+      EXPECT_EQ(
+          fromTimestampString("1970-08-01"),
+          parseSimple("8", monthSpecifier, lenient).timestamp);
+      EXPECT_EQ(
+          fromTimestampString("2024-08-01"),
+          parseSimple("2024 08", "yyyy " + monthSpecifier, lenient).timestamp);
+      EXPECT_EQ(
+          fromTimestampString("2024-08-01"),
+          parseSimple("2024 08", "yyyy " + monthSpecifier, lenient).timestamp);
+      EXPECT_EQ(
+          fromTimestampString("2024-08-01"),
+          parseSimple("2024 08 01", "yyyy " + monthSpecifier + " dd", lenient).timestamp);
+      EXPECT_EQ(
+          fromTimestampString("2024-08-30"),
+          parseSimple("2024 08 30", "yyyy " + monthSpecifier + " dd", lenient).timestamp);
+    }
+  }
+}
+
+TEST_F(SimpleDateTimeFormatterTest, formatSimpleMonthOfYear) {
+  auto* timezone = tz::locateZone("GMT");
+  for (bool lenient : {true, false}) {
+    for (std::string monthSpecifier : {"MM", "LL"}) {
+      EXPECT_EQ(
+          formatSimpleDateTime(monthSpecifier, fromTimestampString("1970-01-01"), timezone, lenient),
+          "01");
+      EXPECT_EQ(
+          formatSimpleDateTime(monthSpecifier, fromTimestampString("1970-05-01"), timezone, lenient),
+          "05");
+      EXPECT_EQ(
+          formatSimpleDateTime(monthSpecifier, fromTimestampString("1970-12-01"), timezone, lenient),
+          "12");
+      EXPECT_EQ(
+          formatSimpleDateTime("yyyy-" + monthSpecifier, fromTimestampString("1999-12-01"), timezone, lenient),
+          "1999-12");
+      EXPECT_EQ(
+          formatSimpleDateTime("yyyy-" + monthSpecifier + "-dd", fromTimestampString("1999-12-04"), timezone, lenient),
+          "1999-12-04");
+    }
+  }
+}
+
+TEST_F(SimpleDateTimeFormatterTest, parseSimpleDayOfWeek) {
+  for (bool lenient : {true, false}) {
+    EXPECT_EQ(
+        fromTimestampString("2024-01-01"),
+        parseSimple("2024-01-1", "yyyy-ww-u", lenient).timestamp);
+    EXPECT_EQ(
+        fromTimestampString("2024-01-13"),
+        parseSimple("2024-02-6", "yyyy-ww-u", lenient).timestamp);
   }
 }
 

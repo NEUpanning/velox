@@ -692,6 +692,16 @@ int getMaxDigitConsume(
   }
 }
 
+// Joda has this weird behavior where it returns 1970 as the year by
+// default (if no year is specified), but if either day or month are
+// specified, it fallsback to 2000.
+void fallbackJodaDefaultYear(Date& date, DateTimeFormatterType type) {
+  if (type == DateTimeFormatterType::JODA && !date.hasYear) {
+    date.hasYear = true;
+    date.year = 2000;
+  }
+}
+
 // If failOnError is true, throws exception for parsing error. Otherwise,
 // returns -1. Returns 0 if no parsing error.
 int32_t parseFromPattern(
@@ -727,10 +737,7 @@ int32_t parseFromPattern(
       return -1;
     }
     cur += size;
-    if (!date.hasYear) {
-      date.hasYear = true;
-      date.year = 2000;
-    }
+    fallbackJodaDefaultYear(date, type);
   } else if (curPattern.specifier == DateTimeFormatSpecifier::HALFDAY_OF_DAY) {
     auto size = parseHalfDayOfDay(cur, end, date);
     if (size == -1) {
@@ -745,10 +752,7 @@ int32_t parseFromPattern(
     }
     cur += size;
     date.dayOfYearFormat = false;
-    if (!date.hasYear) {
-      date.hasYear = true;
-      date.year = 2000;
-    }
+    fallbackJodaDefaultYear(date, type);
   } else {
     // Numeric specifier case
     bool negative = false;
@@ -869,13 +873,7 @@ int32_t parseFromPattern(
         date.month = number;
         date.weekDateFormat = false;
         date.dayOfYearFormat = false;
-        // Joda has this weird behavior where it returns 1970 as the year by
-        // default (if no year is specified), but if either day or month are
-        // specified, it fallsback to 2000.
-        if (!date.hasYear) {
-          date.hasYear = true;
-          date.year = 2000;
-        }
+        fallbackJodaDefaultYear(date, type);
         break;
 
       case DateTimeFormatSpecifier::DAY_OF_MONTH:
@@ -884,13 +882,7 @@ int32_t parseFromPattern(
         date.weekDateFormat = false;
         date.dayOfYearFormat = false;
         date.weekOfMonthDateFormat = false;
-        // Joda has this weird behavior where it returns 1970 as the year by
-        // default (if no year is specified), but if either day or month are
-        // specified, it fallsback to 2000.
-        if (!date.hasYear) {
-          date.hasYear = true;
-          date.year = 2000;
-        }
+        fallbackJodaDefaultYear(date, type);
         break;
 
       case DateTimeFormatSpecifier::DAY_OF_YEAR:
@@ -899,13 +891,7 @@ int32_t parseFromPattern(
         date.dayOfYearFormat = true;
         date.weekDateFormat = false;
         date.weekOfMonthDateFormat = false;
-        // Joda has this weird behavior where it returns 1970 as the year by
-        // default (if no year is specified), but if either day or month are
-        // specified, it fallsback to 2000.
-        if (!date.hasYear) {
-          date.hasYear = true;
-          date.year = 2000;
-        }
+        fallbackJodaDefaultYear(date, type);
         break;
 
       case DateTimeFormatSpecifier::CLOCK_HOUR_OF_DAY:
@@ -983,10 +969,7 @@ int32_t parseFromPattern(
         date.weekDateFormat = true;
         date.dayOfYearFormat = false;
         date.weekOfMonthDateFormat = false;
-        if (!date.hasYear) {
-          date.hasYear = true;
-          date.year = 2000;
-        }
+        fallbackJodaDefaultYear(date, type);
         break;
 
       case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED:
@@ -998,10 +981,7 @@ int32_t parseFromPattern(
         date.dayOfWeek = number;
         date.hasDayOfWeek = true;
         date.dayOfYearFormat = false;
-        if (!date.hasYear) {
-          date.hasYear = true;
-          date.year = 2000;
-        }
+        fallbackJodaDefaultYear(date, type);
         break;
       case DateTimeFormatSpecifier::WEEK_OF_MONTH:
         date.weekOfMonthDateFormat = true;
@@ -1789,16 +1769,13 @@ std::shared_ptr<DateTimeFormatter> buildSimpleDateTimeFormatter(
         case 'a':
           builder.appendHalfDayOfDay();
           break;
-        case 'C':
-          builder.appendCenturyOfEra(count);
-          break;
         case 'd':
           builder.appendDayOfMonth(count);
           break;
         case 'D':
           builder.appendDayOfYear(count);
           break;
-        case 'e':
+        case 'u':
           builder.appendDayOfWeek1Based(count);
           break;
         case 'E':
@@ -1822,7 +1799,13 @@ std::shared_ptr<DateTimeFormatter> buildSimpleDateTimeFormatter(
         case 'm':
           builder.appendMinuteOfHour(count);
           break;
+        // Specifier 'M' represents context-sensitive month and Specifier 'L'
+        // represents the standalone form of month. Spark sets the locale of
+        // SimpleDateFormat to en_US which context-sensitive month has no
+        // different with standalone form of month. Therefore, their
+        // implementation in Velox both is the same.
         case 'M':
+        case 'L':
           if (count <= 2) {
             builder.appendMonthOfYear(count);
           } else {
@@ -1841,14 +1824,11 @@ std::shared_ptr<DateTimeFormatter> buildSimpleDateTimeFormatter(
         case 'W':
           builder.appendWeekOfMonth(count);
           break;
-        case 'x':
+        case 'Y':
           builder.appendWeekYear(count);
           break;
         case 'y':
           builder.appendYear(count);
-          break;
-        case 'Y':
-          builder.appendYearOfEra(count);
           break;
         case 'z':
           builder.appendTimeZone(count);
