@@ -16,6 +16,7 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/row/UnsafeRowFast.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -256,6 +257,19 @@ TEST_P(UnsafeRowSerializerTest, manyRows) {
 
   testSerialize(expected, data, 140);
   testDeserialize(data, 140, expected);
+}
+
+TEST_P(UnsafeRowSerializerTest, structField) {
+  int8_t data[32] = {0, 0, 0, 0, 0,  0, 0, 0, -24, 3,   0,   0,   0,   0, 0, 0,
+                     5, 0, 0, 0, 24, 0, 0, 0, 97,  112, 112, 108, 101, 0, 0, 0};
+  auto expected = makeFlatVector(std::vector<StringView>{"apple"});
+  VectorPtr results = row::UnsafeRowDeserializer::deserializeStructField(
+      {std::string_view(reinterpret_cast<const char*>(data), 32)},
+      VARCHAR(),
+      1,
+      2,
+      pool());
+  test::assertEqualVectors(expected, results);
 }
 
 TEST_P(UnsafeRowSerializerTest, splitRow) {
