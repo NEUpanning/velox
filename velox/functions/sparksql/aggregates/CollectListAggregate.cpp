@@ -74,8 +74,13 @@ class CollectListAggregate : public exec::Aggregate {
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     VELOX_CHECK(result);
+    TypePtr elementType = UNKNOWN();
+    if (elementType_.has_value()) {
+      elementType = elementType_.value();
+    }
+
     auto vector = BaseVector::create(
-        ROW({"data", "type"}, {ARRAY(elementType_.value()), VARCHAR()}),
+        ROW({"data", "type"}, {ARRAY(elementType), VARCHAR()}),
         numGroups,
         allocator_->pool());
     auto rowVector = vector->asChecked<RowVector>();
@@ -85,7 +90,7 @@ class CollectListAggregate : public exec::Aggregate {
     auto elements = arrayVector->elements();
     elements->resize(countElements(groups, numGroups));
 
-    auto typeStr = folly::toJson(elementType_.value()->serialize());
+    auto typeStr = folly::toJson(elementType->serialize());
     vector_size_t offset = 0;
     for (int32_t i = 0; i < numGroups; ++i) {
       flatVector->set(i, StringView(typeStr));
@@ -164,7 +169,11 @@ class CollectListAggregate : public exec::Aggregate {
                   kTypeIndex,
                   kFieldNum,
                   allocator_->pool());
-          elementType_ = Type::create(folly::parseJson(strVector->toString(0)));
+          auto type = Type::create(folly::parseJson(strVector->toString(0)));
+          if (type->isUnKnown()) {
+            return;
+          }
+          elementType_ = type;
         }
         VectorPtr dataVector =
             row::UnsafeRowDeserializer::deserializeStructField(
@@ -218,7 +227,11 @@ class CollectListAggregate : public exec::Aggregate {
                   kTypeIndex,
                   kFieldNum,
                   allocator_->pool());
-          elementType_ = Type::create(folly::parseJson(strVector->toString(0)));
+          auto type = Type::create(folly::parseJson(strVector->toString(0)));
+          if (type->isUnKnown()) {
+            return;
+          }
+          elementType_ = type;
         }
         VectorPtr dataVector =
             row::UnsafeRowDeserializer::deserializeStructField(
@@ -276,13 +289,23 @@ AggregateRegistrationResult registerCollectList(
     const std::string& name,
     bool withCompanionFunctions,
     bool overwrite) {
-  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
-      exec::AggregateFunctionSignatureBuilder()
-          .typeVariable("E")
-          .returnType("array(E)")
-          .intermediateType("varbinary")
-          .argumentType("E")
-          .build()};
+  //  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+  //      exec::AggregateFunctionSignatureBuilder()
+  //          .typeVariable("E")
+  //          .returnType("array(E)")
+  //          .intermediateType("varbinary")
+  //          .argumentType("E")
+  //          .build()};
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
+  for (const auto& inputType :
+       {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
+    auto returnType = fmt::format("array({})", inputType);
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType(returnType)
+                             .intermediateType("varbinary")
+                             .argumentType(inputType)
+                             .build());
+  }
   return exec::registerAggregateFunction(
       name,
       std::move(signatures),
@@ -298,14 +321,12 @@ AggregateRegistrationResult registerCollectList(
           return std::make_unique<CollectListAggregate>(
               resultType, std::nullopt);
         } else if (step == core::AggregationNode::Step::kFinal) {
-          return std::make_unique<CollectListAggregate>(resultType, resultType);
+          return std::make_unique<CollectListAggregate>(
+              resultType, resultType->asArray().elementType());
         }
         return std::make_unique<CollectListAggregate>(resultType, argTypes[0]);
       },
-      // Currently, Velox doesn't support automatically generating companion
-      // functions for aggregate functions whose result type is not resolvable
-      // given solely the concrete intermediate type.
-      false /*withCompanionFunctions*/,
+      withCompanionFunctions,
       overwrite);
 }
 } // namespace
