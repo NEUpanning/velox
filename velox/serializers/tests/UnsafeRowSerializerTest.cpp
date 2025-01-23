@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 #include "velox/serializers/UnsafeRowSerializer.h"
-#include "velox/row/UnsafeRowDeserializers.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/row/UnsafeRowDeserializers.h"
 #include "velox/row/UnsafeRowFast.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
