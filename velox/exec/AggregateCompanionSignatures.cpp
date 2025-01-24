@@ -198,9 +198,9 @@ std::string CompanionSignatures::mergeExtractFunctionName(
 
 FunctionSignaturePtr CompanionSignatures::extractFunctionSignature(
     const AggregateFunctionSignaturePtr& signature) {
-  if (!isResultTypeResolvableGivenIntermediateType(signature)) {
-    return nullptr;
-  }
+//  if (!isResultTypeResolvableGivenIntermediateType(signature)) {
+//    return nullptr;
+//  }
 
   std::vector<TypeSignature> usedTypes = {
       signature->intermediateType(), signature->returnType()};

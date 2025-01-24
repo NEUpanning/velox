@@ -158,14 +158,14 @@ void validate(
     validateBaseTypeAndCollectTypeParams(variables, arg, usedVariables, false);
   }
 
-  // All type variables should apear in the inputs arguments.
-  for (auto& [name, variable] : variables) {
-    if (variable.isTypeParameter()) {
-      VELOX_USER_CHECK(
-          usedVariables.count(name),
-          "Some type variables are not used in the inputs");
-    }
-  }
+//  // All type variables should apear in the inputs arguments.
+//  for (auto& [name, variable] : variables) {
+//    if (variable.isTypeParameter()) {
+//      VELOX_USER_CHECK(
+//          usedVariables.count(name),
+//          "Some type variables are not used in the inputs");
+//    }
+//  }
 
   validateBaseTypeAndCollectTypeParams(
       variables, returnType, usedVariables, true);
