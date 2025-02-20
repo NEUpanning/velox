@@ -32,8 +32,11 @@ struct ArrayAccumulator {
 
 class CollectListAggregate : public exec::Aggregate {
  public:
-  CollectListAggregate(TypePtr resultType, std::optional<TypePtr> elementType)
-      : Aggregate(resultType), elementType_(elementType) {}
+  CollectListAggregate(
+      TypePtr resultType,
+      std::optional<TypePtr> elementType,
+      bool isUT)
+      : Aggregate(resultType), elementType_(elementType), isUT_(isUT) {}
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(ArrayAccumulator);
@@ -89,8 +92,11 @@ class CollectListAggregate : public exec::Aggregate {
         rowVector->childAt(1)->asChecked<FlatVector<StringView>>();
     auto elements = arrayVector->elements();
     elements->resize(countElements(groups, numGroups));
-
-    auto typeStr = folly::toJson(elementType->serialize());
+    // Ensure intermediate results are deterministic during unit tests
+    // to prevent failures when comparing intermediate outputs.
+    folly::json::serialization_opts opts;
+    opts.sort_keys = isUT_;
+    auto typeStr = folly::json::serialize(elementType->serialize(), opts);
     vector_size_t offset = 0;
     for (int32_t i = 0; i < numGroups; ++i) {
       flatVector->set(i, StringView(typeStr));
@@ -280,6 +286,7 @@ class CollectListAggregate : public exec::Aggregate {
   DecodedVector decodedElements_;
   DecodedVector decodedIntermediate_;
   std::optional<TypePtr> elementType_;
+  bool isUT_{false};
   static constexpr int32_t kDataIndex{0};
   static constexpr int32_t kTypeIndex{1};
   static constexpr int32_t kFieldNum{2};
@@ -288,7 +295,8 @@ class CollectListAggregate : public exec::Aggregate {
 AggregateRegistrationResult registerCollectList(
     const std::string& name,
     bool withCompanionFunctions,
-    bool overwrite) {
+    bool overwrite,
+    bool isUT) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("E")
@@ -299,7 +307,7 @@ AggregateRegistrationResult registerCollectList(
   return exec::registerAggregateFunction(
       name,
       std::move(signatures),
-      [name](
+      [name, isUT](
           core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
           const TypePtr& resultType,
@@ -309,12 +317,13 @@ AggregateRegistrationResult registerCollectList(
             argTypes.size(), 1, "{} takes at most one argument", name);
         if (step == core::AggregationNode::Step::kIntermediate) {
           return std::make_unique<CollectListAggregate>(
-              resultType, std::nullopt);
+              resultType, std::nullopt, isUT);
         } else if (step == core::AggregationNode::Step::kFinal) {
           return std::make_unique<CollectListAggregate>(
-              resultType, resultType->asArray().elementType());
+              resultType, resultType->asArray().elementType(), isUT);
         }
-        return std::make_unique<CollectListAggregate>(resultType, argTypes[0]);
+        return std::make_unique<CollectListAggregate>(
+            resultType, argTypes[0], isUT);
       },
       withCompanionFunctions,
       overwrite);
@@ -324,8 +333,9 @@ AggregateRegistrationResult registerCollectList(
 void registerCollectListAggregate(
     const std::string& prefix,
     bool withCompanionFunctions,
-    bool overwrite) {
+    bool overwrite,
+    bool isUT) {
   registerCollectList(
-      prefix + "collect_list", withCompanionFunctions, overwrite);
+      prefix + "collect_list", withCompanionFunctions, overwrite, isUT);
 }
 } // namespace facebook::velox::functions::aggregate::sparksql
