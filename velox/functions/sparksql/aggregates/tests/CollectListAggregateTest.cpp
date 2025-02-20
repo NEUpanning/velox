@@ -15,7 +15,7 @@
  */
 
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
-#include "velox/functions/sparksql/aggregates/Register.h"
+#include "velox/functions/sparksql/aggregates/CollectListAggregate.h"
 
 using namespace facebook::velox::functions::aggregate::test;
 
@@ -27,10 +27,7 @@ class CollectListAggregateTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    registerAggregateFunctions("spark_");
-    // The intermediate data of spark_collect_list includes the json string of
-    // type, but it is non-deterministic. Therefore, it cannot be tested
-    // incrementally.
+    registerCollectListAggregate("spark_", true, true, true);
     disableTestIncremental();
   }
 };

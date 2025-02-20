@@ -23,6 +23,7 @@ namespace facebook::velox::functions::aggregate::sparksql {
 void registerCollectListAggregate(
     const std::string& prefix,
     bool withCompanionFunctions,
-    bool overwrite);
+    bool overwrite,
+    bool isUT = false);
 
 } // namespace facebook::velox::functions::aggregate::sparksql
