@@ -163,9 +163,15 @@ bool CompanionSignatures::hasSameIntermediateTypesAcrossSignatures(
 AggregateFunctionSignaturePtr
 CompanionSignatures::mergeExtractFunctionSignature(
     const AggregateFunctionSignaturePtr& signature) {
-  std::vector<TypeSignature> usedTypes = {
-      signature->intermediateType(), signature->returnType()};
+  std::vector<TypeSignature> usedTypes = signature->argumentTypes();
+  usedTypes.push_back(signature->intermediateType());
+  usedTypes.push_back(signature->returnType());
   auto variables = usedTypeVariables(usedTypes, signature->variables());
+  // For merge_extract companion function, type variables could be in argument
+  // types and intermediate type. Therefore, we need to add them to additional
+  // types.
+  std::vector<TypeSignature> additionalTypes = signature->argumentTypes();
+  additionalTypes.push_back(signature->intermediateType());
   return std::make_shared<AggregateFunctionSignature>(
       /*variables*/ variables,
       /*returnType*/ signature->returnType(),
@@ -173,7 +179,8 @@ CompanionSignatures::mergeExtractFunctionSignature(
       /*argumentTypes*/
       std::vector<TypeSignature>{signature->intermediateType()},
       /*constantArguments*/ std::vector<bool>{false},
-      /*variableArity*/ false);
+      /*variableArity*/ false,
+      /*additionalTypes*/ additionalTypes);
 }
 
 std::vector<AggregateFunctionSignaturePtr>

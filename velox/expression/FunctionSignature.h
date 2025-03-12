@@ -215,6 +215,23 @@ class AggregateFunctionSignature : public FunctionSignature {
             {intermediateType}),
         intermediateType_{std::move(intermediateType)} {}
 
+  AggregateFunctionSignature(
+      std::unordered_map<std::string, SignatureVariable> variables,
+      TypeSignature returnType,
+      TypeSignature intermediateType,
+      std::vector<TypeSignature> argumentTypes,
+      std::vector<bool> constantArguments,
+      bool variableArity,
+      const std::vector<TypeSignature>& additionalTypes)
+      : FunctionSignature(
+            std::move(variables),
+            std::move(returnType),
+            std::move(argumentTypes),
+            std::move(constantArguments),
+            variableArity,
+            additionalTypes),
+        intermediateType_{std::move(intermediateType)} {}
+
   const TypeSignature& intermediateType() const {
     return intermediateType_;
   }
