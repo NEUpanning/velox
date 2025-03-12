@@ -340,30 +340,16 @@ bool registerAggregateFunction(
                  const TypePtr& resultType,
                  const core::QueryConfig& config)
                  -> std::unique_ptr<Aggregate> {
-               TypePtr functionResultType;
-               if (step == core::AggregationNode::Step::kFinal ||
-                   step == core::AggregationNode::Step::kSingle) {
-                 functionResultType = resultType;
-               } else {
-                 // When step is kPartial or kIntermediate, 'resultType' is
-                 // the intermediate type and the original result type needs to
-                 // be resolved for the aggregate function creation.
-                 const auto& [originalResultType, _] = resolveAggregateFunction(
-                     mergeExtractFunctionName, argTypes);
-                 if (!originalResultType) {
-                   // Result type must be resolvable given intermediate type of
-                   // the original UDAF.
-                   VELOX_UNREACHABLE(
-                       "Signatures whose result types are not resolvable given intermediate types should have been excluded.");
-                 }
-                 functionResultType = originalResultType;
+               core::AggregationNode::Step factoryStep = core::AggregationNode::Step::kFinal;
+               if (isPartialOutput(step)) {
+                 factoryStep = core::AggregationNode::Step::kIntermediate;
                }
 
                if (auto func = getAggregateFunctionEntry(name)) {
                  auto fn = func->factory(
-                     core::AggregationNode::Step::kFinal,
+                     factoryStep,
                      argTypes,
-                     functionResultType,
+                     resultType,
                      config);
                  VELOX_CHECK_NOT_NULL(fn);
                  return std::make_unique<
