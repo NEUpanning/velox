@@ -667,7 +667,8 @@ class AggregateTypeResolver {
 
 core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
     core::AggregationNode::Step step,
-    const core::AggregationNode* partialAggNode) {
+    const core::AggregationNode* partialAggNode,
+    const std::vector<TypePtr>& finalTypes) {
   // Create intermediate or final aggregation using same grouping keys and same
   // aggregate function names.
   const auto& partialAggregates = partialAggNode->aggregates();
@@ -691,6 +692,13 @@ core::PlanNodePtr PlanBuilder::createIntermediateOrFinalAggregation(
 
     auto type =
         resolveAggregateType(name, step, aggregate.rawInputTypes, false);
+    // For some aggregate companion functions, we can't resolve the return type
+    // from intermediate type. For example, the input type of merge extract
+    // function in final step is varbinary but final result type is array[T]
+    // which cannot be resolved from input type.
+    if (type == nullptr && step == core::AggregationNode::Step::kFinal) {
+      type = finalTypes[i];
+    }
     std::vector<core::TypedExprPtr> inputs = {field(numGroupingKeys + i)};
 
     // Add lambda inputs.
@@ -751,7 +759,8 @@ PlanBuilder& PlanBuilder::intermediateAggregation() {
   return *this;
 }
 
-PlanBuilder& PlanBuilder::finalAggregation() {
+PlanBuilder& PlanBuilder::finalAggregation(
+    const std::vector<TypePtr>& finalTypes) {
   const auto* aggNode = findPartialAggregation(planNode_.get());
 
   if (!exec::isRawInput(aggNode->step())) {
@@ -768,7 +777,7 @@ PlanBuilder& PlanBuilder::finalAggregation() {
 
   auto step = core::AggregationNode::Step::kFinal;
 
-  planNode_ = createIntermediateOrFinalAggregation(step, aggNode);
+  planNode_ = createIntermediateOrFinalAggregation(step, aggNode, finalTypes);
   return *this;
 }
 

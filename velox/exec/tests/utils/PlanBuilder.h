@@ -686,7 +686,7 @@ class PlanBuilder {
   /// directly after intermediateAggregation() that follows
   /// partialAggregation(). Can be called also if there is a local exchange
   /// after partial or intermediate aggregation.
-  PlanBuilder& finalAggregation();
+  PlanBuilder& finalAggregation(const std::vector<TypePtr>& finalTypes = {});
 
   /// Add final aggregation plan node using specified grouping keys, aggregate
   /// expressions and their types.
@@ -1298,7 +1298,8 @@ class PlanBuilder {
 
   core::PlanNodePtr createIntermediateOrFinalAggregation(
       core::AggregationNode::Step step,
-      const core::AggregationNode* partialAggNode);
+      const core::AggregationNode* partialAggNode,
+      const std::vector<TypePtr>& finalTypes={});
 
   struct AggregatesAndNames {
     std::vector<core::AggregationNode::Aggregate> aggregates;

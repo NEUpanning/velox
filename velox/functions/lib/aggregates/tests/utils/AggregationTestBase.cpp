@@ -673,6 +673,315 @@ void AggregationTestBase::testAggregationsWithCompanion(
   }
 }
 
+void AggregationTestBase::testSparkAggregationsWithCompanion(
+    const std::vector<RowVectorPtr>& data,
+    const std::function<void(PlanBuilder&)>& preAggregationProcessing,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
+    const std::vector<std::string>& postAggregationProjections,
+    const std::string& duckDbSql,
+    const std::unordered_map<std::string, std::string>& config,
+    const std::vector<TypePtr>& finalTypes) {
+  testSparkAggregationsWithCompanion(
+      data,
+      preAggregationProcessing,
+      groupingKeys,
+      aggregates,
+      aggregatesArgTypes,
+      postAggregationProjections,
+      [&](auto& builder) { return builder.assertResults(duckDbSql); },
+      config,
+      finalTypes);
+}
+
+void AggregationTestBase::testSparkAggregationsWithCompanion(
+    const std::vector<RowVectorPtr>& data,
+    const std::function<void(PlanBuilder&)>& preAggregationProcessing,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
+    const std::vector<std::string>& postAggregationProjections,
+    const std::vector<RowVectorPtr>& expectedResult,
+    const std::unordered_map<std::string, std::string>& config,
+    const std::vector<TypePtr>& finalTypes) {
+  testSparkAggregationsWithCompanion(
+      data,
+      preAggregationProcessing,
+      groupingKeys,
+      aggregates,
+      aggregatesArgTypes,
+      postAggregationProjections,
+      [&](auto& builder) { return builder.assertResults(expectedResult); },
+      config,
+      finalTypes);
+}
+
+void AggregationTestBase::testSparkAggregationsWithCompanion(
+    const std::vector<RowVectorPtr>& data,
+    const std::function<void(PlanBuilder&)>& preAggregationProcessing,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
+    const std::vector<std::string>& postAggregationProjections,
+    std::function<std::shared_ptr<exec::Task>(exec::test::AssertQueryBuilder&)>
+        assertResults,
+    const std::unordered_map<std::string, std::string>& config,
+    const std::vector<TypePtr>& finalTypes) {
+  auto dataWithExtraGroupingKey = addExtraGroupingKey(data, "k0");
+  auto groupingKeysWithPartialKey = groupingKeys;
+  groupingKeysWithPartialKey.push_back("k0");
+
+  std::vector<std::string> partialAggregates;
+  std::vector<std::string> mergeAggregates;
+  std::vector<std::string> mergeExtractAggregates;
+
+  auto [functionNames, aggregateArgs] = getFunctionNamesAndArgs(aggregates);
+  for (size_t i = 0, size = functionNames.size(); i < size; ++i) {
+    const auto& companionSignatures =
+        exec::getCompanionFunctionSignatures(functionNames[i]);
+    VELOX_CHECK(companionSignatures.has_value());
+
+    const auto& [partialAggregate, mergeAggregate, mergeExtractAggregate, _] =
+        getCompanionAggregates(
+            i,
+            *companionSignatures,
+            functionNames[i],
+            aggregateArgs[i],
+            aggregatesArgTypes[i]);
+    partialAggregates.push_back(partialAggregate);
+    mergeAggregates.push_back(mergeAggregate);
+    mergeExtractAggregates.push_back(mergeExtractAggregate);
+  }
+
+  {
+    SCOPED_TRACE("Run partial + final merge extract");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtraGroupingKey);
+    preAggregationProcessing(builder);
+    builder.partialAggregation(groupingKeysWithPartialKey, partialAggregates)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeExtractAggregates)
+        .intermediateAggregation()
+        .finalAggregation(finalTypes);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
+    assertResults(queryBuilder);
+  }
+
+  if (!groupingKeys.empty() && !hasOrderSensitive(data, aggregates, pool())) {
+    SCOPED_TRACE("Run partial + final merge extract with spilling");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtraGroupingKey);
+    preAggregationProcessing(builder);
+
+    // Spilling needs at least 2 batches of input. Use round-robin
+    // repartitioning to split input into multiple batches.
+    core::PlanNodeId partialNodeId;
+    core::PlanNodeId finalNodeId;
+    builder.localPartitionRoundRobinRow()
+        .partialAggregation(groupingKeysWithPartialKey, partialAggregates)
+        .capturePlanNodeId(partialNodeId)
+        .localPartition(groupingKeysWithPartialKey)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates)
+        .capturePlanNodeId(partialNodeId)
+        .localPartition(groupingKeys)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeExtractAggregates)
+        .intermediateAggregation()
+        .finalAggregation(finalTypes)
+        .capturePlanNodeId(finalNodeId);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config)
+        .config(core::QueryConfig::kSpillEnabled, true)
+        .config(core::QueryConfig::kAggregationSpillEnabled, true)
+        .spillDirectory(spillDirectory->getPath())
+        .maxDrivers(4);
+
+    exec::TestScopedSpillInjection scopedSpillInjection(100);
+    auto task = assertResults(queryBuilder);
+
+    // Expect > 0 spilled bytes unless there was no input.
+    const auto partialInputRows =
+        toPlanStats(task->taskStats()).at(partialNodeId).inputRows;
+    const auto finalInputRows =
+        toPlanStats(task->taskStats()).at(finalNodeId).inputRows;
+    if (exec::injectedSpillCount() > 0) {
+      EXPECT_LT(0, spilledBytes(*task))
+          << "partial inputRows: " << partialInputRows
+          << " final inputRows: " << finalInputRows
+          << " spilledRows: " << spilledRows(*task)
+          << " spilledInputBytes: " << spilledInputBytes(*task)
+          << " spilledFiles: " << spilledFiles(*task)
+          << " injectedSpills: " << exec::injectedSpillCount();
+    } else {
+      EXPECT_EQ(0, spilledBytes(*task))
+          << "partial inputRows: " << partialInputRows
+          << " final inputRows: " << finalInputRows
+          << " spilledRows: " << spilledRows(*task)
+          << " spilledInputBytes: " << spilledInputBytes(*task)
+          << " spilledFiles: " << spilledFiles(*task)
+          << " injectedSpills: " << exec::injectedSpillCount();
+    }
+  }
+
+  {
+    SCOPED_TRACE("Run single");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtraGroupingKey);
+    preAggregationProcessing(builder);
+    builder.singleAggregation(groupingKeysWithPartialKey, partialAggregates)
+        .singleAggregation(groupingKeys, mergeAggregates)
+        .partialAggregation(groupingKeys, mergeExtractAggregates)
+        .intermediateAggregation()
+        .finalAggregation(finalTypes);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
+    assertResults(queryBuilder);
+  }
+
+  {
+    SCOPED_TRACE("Run partial + intermediate + final merge extract");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtraGroupingKey);
+    preAggregationProcessing(builder);
+    builder.partialAggregation(groupingKeysWithPartialKey, partialAggregates)
+        .intermediateAggregation()
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates)
+        .intermediateAggregation()
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeExtractAggregates)
+        .intermediateAggregation()
+        .finalAggregation(finalTypes);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
+    assertResults(queryBuilder);
+  }
+
+  {
+    SCOPED_TRACE("Run partial + intermediate + final merge extract");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtraGroupingKey);
+    preAggregationProcessing(builder);
+
+    builder.partialAggregation(groupingKeysWithPartialKey, partialAggregates)
+        .intermediateAggregation()
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeExtractAggregates)
+        .intermediateAggregation()
+        .finalAggregation(finalTypes);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
+    assertResults(queryBuilder);
+  }
+
+  if (!groupingKeys.empty()) {
+    SCOPED_TRACE("Run partial + local exchange + final merge extract");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtraGroupingKey);
+    preAggregationProcessing(builder);
+    builder.partialAggregation(groupingKeysWithPartialKey, partialAggregates)
+        .localPartition(groupingKeysWithPartialKey)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates)
+        .localPartition(groupingKeys)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeExtractAggregates)
+        .intermediateAggregation()
+        .finalAggregation(finalTypes);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config).maxDrivers(4);
+    assertResults(queryBuilder);
+  }
+
+  {
+    SCOPED_TRACE(
+        "Run partial + local exchange + intermediate + local exchange + final");
+    PlanBuilder builder(pool());
+    builder.values(dataWithExtraGroupingKey);
+    preAggregationProcessing(builder);
+    builder.partialAggregation(groupingKeysWithPartialKey, partialAggregates)
+        .localPartition(groupingKeysWithPartialKey)
+        .intermediateAggregation()
+        .localPartition(groupingKeysWithPartialKey)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeAggregates);
+
+    if (groupingKeys.empty()) {
+      builder.localPartitionRoundRobinRow();
+    } else {
+      builder.localPartition(groupingKeys);
+    }
+
+    builder.intermediateAggregation()
+        .localPartition(groupingKeys)
+        .finalAggregation()
+        .partialAggregation(groupingKeys, mergeExtractAggregates)
+        .intermediateAggregation()
+        .finalAggregation(finalTypes);
+
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config).maxDrivers(2);
+    assertResults(queryBuilder);
+  }
+
+  if (testStreaming_ && groupingKeys.empty() &&
+      postAggregationProjections.empty()) {
+    {
+      SCOPED_TRACE("Streaming partial");
+      auto partialResult = validateStreamingInTestAggregations(
+          [&](auto& builder) { builder.values(dataWithExtraGroupingKey); },
+          partialAggregates,
+          config);
+
+      validateStreamingInTestAggregations(
+          [&](auto& builder) { builder.values({partialResult}); },
+          mergeAggregates,
+          config);
+    }
+  }
+}
+
 namespace {
 
 void writeToFile(

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/functions/sparksql/aggregates/CollectListAggregate.h"
+#include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 
 using namespace facebook::velox::functions::aggregate::test;
 
@@ -60,7 +60,7 @@ TEST_F(CollectListAggregateTest, groupBy) {
       {"spark_collect_list(c1)"},
       {"c0", "array_sort(a0)"},
       {expected});
-  testAggregationsWithCompanion(
+  testSparkAggregationsWithCompanion(
       batches,
       [](auto& /*builder*/) {},
       {"c0"},
@@ -68,7 +68,8 @@ TEST_F(CollectListAggregateTest, groupBy) {
       {{BIGINT()}},
       {"c0", "array_sort(a0)"},
       {expected},
-      {});
+      {},
+      {ARRAY(BIGINT())});
 }
 
 TEST_F(CollectListAggregateTest, global) {
@@ -79,14 +80,16 @@ TEST_F(CollectListAggregateTest, global) {
 
   testAggregations(
       {data}, {}, {"spark_collect_list(c0)"}, {"array_sort(a0)"}, {expected});
-  testAggregationsWithCompanion(
+  testSparkAggregationsWithCompanion(
       {data},
       [](auto& /*builder*/) {},
       {},
       {"spark_collect_list(c0)"},
       {{INTEGER()}},
       {"array_sort(a0)"},
-      {expected});
+      {expected},
+      {},
+      {ARRAY(INTEGER())});
 }
 
 TEST_F(CollectListAggregateTest, ignoreNulls) {
@@ -97,7 +100,7 @@ TEST_F(CollectListAggregateTest, ignoreNulls) {
       makeRowVector({makeArrayVectorFromJson<int32_t>({"[1, 2, 4, 6]"})});
   testAggregations(
       {input}, {}, {"spark_collect_list(c0)"}, {"array_sort(a0)"}, {expected});
-  testAggregationsWithCompanion(
+  testSparkAggregationsWithCompanion(
       {input},
       [](auto& /*builder*/) {},
       {},
@@ -105,7 +108,8 @@ TEST_F(CollectListAggregateTest, ignoreNulls) {
       {{INTEGER()}},
       {"array_sort(a0)"},
       {expected},
-      {});
+      {},
+      {ARRAY(INTEGER())});
 }
 
 TEST_F(CollectListAggregateTest, allNullsInput) {
@@ -113,7 +117,7 @@ TEST_F(CollectListAggregateTest, allNullsInput) {
   // If all input data is null, Spark will output an empty array.
   auto expected = makeRowVector({makeArrayVectorFromJson<int32_t>({"[]"})});
   testAggregations({input}, {}, {"spark_collect_list(c0)"}, {expected});
-  testAggregationsWithCompanion(
+  testSparkAggregationsWithCompanion(
       {input},
       [](auto& /*builder*/) {},
       {},
@@ -121,7 +125,8 @@ TEST_F(CollectListAggregateTest, allNullsInput) {
       {{BIGINT()}},
       {},
       {expected},
-      {});
+      {},
+      {ARRAY(BIGINT())});
 }
 } // namespace
 } // namespace facebook::velox::functions::aggregate::sparksql::test

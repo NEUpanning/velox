@@ -181,6 +181,46 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
           exec::test::AssertQueryBuilder&)> assertResults,
       const std::unordered_map<std::string, std::string>& config = {});
 
+  // This method only tests partial, merge and merge extract companion
+  // functions, as Spark only utilize these functions except extract companion
+  // function.
+  void testSparkAggregationsWithCompanion(
+      const std::vector<RowVectorPtr>& data,
+      const std::function<void(exec::test::PlanBuilder&)>&
+          preAggregationProcessing,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
+      const std::vector<std::string>& postAggregationProjections,
+      const std::string& duckDbSql,
+      const std::unordered_map<std::string, std::string>& config = {},
+      const std::vector<TypePtr>& finalTypes = {});
+
+  void testSparkAggregationsWithCompanion(
+      const std::vector<RowVectorPtr>& data,
+      const std::function<void(exec::test::PlanBuilder&)>&
+          preAggregationProcessing,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
+      const std::vector<std::string>& postAggregationProjections,
+      const std::vector<RowVectorPtr>& expectedResult,
+      const std::unordered_map<std::string, std::string>& config = {},
+      const std::vector<TypePtr>& finalTypes = {});
+
+  void testSparkAggregationsWithCompanion(
+      const std::vector<RowVectorPtr>& data,
+      const std::function<void(exec::test::PlanBuilder&)>&
+          preAggregationProcessing,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::vector<TypePtr>>& aggregatesArgTypes,
+      const std::vector<std::string>& postAggregationProjections,
+      std::function<std::shared_ptr<exec::Task>(
+          exec::test::AssertQueryBuilder&)> assertResults,
+      const std::unordered_map<std::string, std::string>& config = {},
+      const std::vector<TypePtr>& finalTypes = {});
+
   // Split the input into 2 files then read the input from files.  Can reveal
   // bugs in string life cycle management.
   void testReadFromFiles(
