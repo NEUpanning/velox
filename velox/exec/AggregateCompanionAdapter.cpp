@@ -414,34 +414,11 @@ bool CompanionFunctionsRegistrar::registerMergeExtractFunction(
 
   auto mergeExtractFunctionName =
       CompanionSignatures::mergeExtractFunctionName(name);
-  registered |=
-      exec::registerAggregateFunction(
-          mergeExtractFunctionName,
-          std::move(mergeExtractSignatures),
-          [name, mergeExtractFunctionName](
-              core::AggregationNode::Step /*step*/,
-              const std::vector<TypePtr>& argTypes,
-              const TypePtr& resultType,
-              const core::QueryConfig& config) -> std::unique_ptr<Aggregate> {
-            if (auto func = getAggregateFunctionEntry(name)) {
-              auto fn = func->factory(
-                  core::AggregationNode::Step::kFinal,
-                  argTypes,
-                  resultType,
-                  config);
-              VELOX_CHECK_NOT_NULL(fn);
-              return std::make_unique<
-                  AggregateCompanionAdapter::MergeExtractFunction>(
-                  std::move(fn), resultType);
-            }
-            VELOX_FAIL(
-                "Original aggregation function {} not found: {}",
-                name,
-                mergeExtractFunctionName);
-          },
-          /*registerCompanionFunctions*/ false,
-          overwrite)
-          .mainFunction;
+  registered |= registerAggregateFunction(
+      name,
+      mergeExtractFunctionName,
+      std::move(mergeExtractSignatures),
+      overwrite);
   return registered;
 }
 
