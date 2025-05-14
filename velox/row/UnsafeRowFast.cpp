@@ -515,7 +515,7 @@ vector_size_t totalSize(const vector_size_t* rawSizes, size_t numRows) {
   }
   return total;
 }
-
+// 行前8个bit是field对应的null bit（应该是8 bytes ?）
 inline const uint8_t* readNulls(const char* buffer) {
   return reinterpret_cast<const uint8_t*>(buffer);
 }
@@ -1004,7 +1004,7 @@ VectorPtr deserialize(
     const TypePtr& type,
     const std::vector<char*>& data,
     const BufferPtr& nulls,
-    std::vector<size_t>& offsets,
+    std::vector<size_t>& offsets,// 因为每行数据有多个字段，这些字段是分开反序列化的，这个offset记录当前反序列化字段的位置
     memory::MemoryPool* pool) {
   const auto typeKind = type->kind();
 
@@ -1057,11 +1057,11 @@ RowVectorPtr deserializeRows(
 
   std::vector<BufferPtr> fieldNulls;
   fieldNulls.reserve(numFields);
-  for (auto i = 0; i < numFields; ++i) {
+  for (auto i = 0; i < numFields; ++i) {// 处理null bits
     fieldNulls.emplace_back(allocateNulls(numRows, pool));
     auto* rawFieldNulls = fieldNulls.back()->asMutable<uint8_t>();
     for (auto row = 0; row < numRows; ++row) {
-      auto* serializedNulls = readNulls(data[row] + offsets[row]);
+      auto* serializedNulls = readNulls(data[row] + offsets[row]);// 每行各字段的null bit
       const auto isNull =
           (rawNulls != nullptr && bits::isBitNull(rawNulls, row)) ||
           bits::isBitSet(serializedNulls, i);
@@ -1069,12 +1069,12 @@ RowVectorPtr deserializeRows(
     }
   }
 
-  const size_t nullLength = alignBits(numFields);
+  const size_t nullLength = alignBits(numFields);// null bit的长度，8 bytes对齐
   for (auto row = 0; row < numRows; ++row) {
     if (rawNulls != nullptr && bits::isBitNull(rawNulls, row)) {
       continue;
     }
-    offsets[row] += nullLength;
+    offsets[row] += nullLength;// 读完了null bits，先给offsets加上null bits length
   }
 
   for (auto i = 0; i < numFields; ++i) {
@@ -1086,16 +1086,16 @@ RowVectorPtr deserializeRows(
         const auto isTopLevelNull = rawNulls && bits::isBitNull(rawNulls, row);
         if (!isTopLevelNull) {
           const auto offset =
-              readInt32(data[row] + offsets[row] + sizeof(int32_t));
-          nestedData[row] = data[row] + offset;
+              readInt32(data[row] + offsets[row] + sizeof(int32_t));// 这里8bytes为size和offset，只读出offset
+          nestedData[row] = data[row] + offset; // 复杂类型中data，offsets默认为0
         }
-        offsets[row] += kFieldWidth;
+        offsets[row] += kFieldWidth;// 无论是null还是非null，row offsets都+8
       }
       auto field =
-          deserialize(child, nestedData, fieldNulls[i], nestedOffsets, pool);
+          deserialize(child, nestedData, fieldNulls[i], nestedOffsets, pool);// 递归反序列化nested field
       fields.emplace_back(std::move(field));
     } else {
-      auto field = deserialize(child, data, fieldNulls[i], offsets, pool);
+      auto field = deserialize(child, data, fieldNulls[i], offsets, pool);// 遍历反序列化字段，offsets会被同步更新
       fields.emplace_back(std::move(field));
     }
   }
@@ -1112,7 +1112,7 @@ RowVectorPtr UnsafeRowFast::deserialize(
     const RowTypePtr& rowType,
     memory::MemoryPool* pool) {
   const auto numRows = data.size();
-  std::vector<size_t> offsets(numRows, 0);
+  std::vector<size_t> offsets(numRows, 0);// 每行的数据一点都没读取，因此offsets都是0
 
   return deserializeRows(rowType, data, nullptr, offsets, pool);
 }
