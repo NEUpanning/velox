@@ -20,6 +20,7 @@
 #include "velox/functions/sparksql/ConcatWs.h"
 #include "velox/functions/sparksql/MaskFunction.h"
 #include "velox/functions/sparksql/Split.h"
+#include "velox/functions/sparksql/SplitLegacy.h"
 #include "velox/functions/sparksql/String.h"
 #include "velox/functions/sparksql/StringToMap.h"
 
@@ -130,6 +131,9 @@ void registerStringFunctions(const std::string& prefix) {
   registerFunction<Split, Array<Varchar>, Varchar, Varchar>({prefix + "split"});
   registerFunction<Split, Array<Varchar>, Varchar, Varchar, int32_t>(
       {prefix + "split"});
+  registerFunction<SplitLegacy, Array<Varchar>, Varchar, Varchar>({prefix + "split_legacy"});
+  registerFunction<SplitLegacy, Array<Varchar>, Varchar, Varchar, int32_t>(
+      {prefix + "split_legacy"});
   registerFunction<MaskFunction, Varchar, Varchar>({prefix + "mask"});
   registerFunction<MaskFunction, Varchar, Varchar, Varchar>({prefix + "mask"});
   registerFunction<MaskFunction, Varchar, Varchar, Varchar, Varchar>(
