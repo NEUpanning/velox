@@ -54,7 +54,7 @@ struct TableInsertPartitionInfo {
   }
 };
 
-/// Contains input and output parameters for groupProbe and joinProbe APIs.
+/// Contains input and output parameters for groupProbe and joinProbe APIs.例如input rows和其Hash值和其对应的entry
 struct HashLookup {
   HashLookup(
       const std::vector<std::unique_ptr<VectorHasher>>& h,

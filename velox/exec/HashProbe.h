@@ -480,7 +480,7 @@ class HashProbe : public Operator {
   std::vector<VectorPtr> filterTableResult_;
   DecodedVector decodedFilterTableResult_;
 
-  // Row number in 'input_' for each output row.
+  // Row number in 'input_' for each output row. index: output row index(0, 1, 2, ...), value: input row number
   BufferPtr outputRowMapping_;
 
   // For left join with filter, we could overwrite the row which we have not

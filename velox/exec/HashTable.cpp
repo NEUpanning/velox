@@ -1854,12 +1854,12 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
   auto maxOut = inputRows.size();
   uint64_t totalBytes{0};
   while (iter.lastRowIndex < iter.rows->size()) {
-    auto row = (*iter.rows)[iter.lastRowIndex];
-    auto hit = (*iter.hits)[row]; // NOLINT
-    if (!hit) {
+    auto row = (*iter.rows)[iter.lastRowIndex]; // input row
+    auto hit = (*iter.hits)[row]; // NOLINT input row 命中的element
+    if (!hit) {// row没命中hash table的情况
       ++iter.lastRowIndex;
       if (includeMisses) {
-        inputRows[numOut] = row; // NOLINT
+        inputRows[numOut] = row; // NOLINT 只有probe table的数据，build table为空
         hits[numOut] = nullptr;
         ++numOut;
         if (numOut >= maxOut) {
@@ -1869,9 +1869,9 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
       continue;
     }
 
-    auto rows = rows_->getNextRowVector(hit);
-    if (!rows) {
-      inputRows[numOut] = row; // NOLINT
+    auto rows = rows_->getNextRowVector(hit);// 与命中的element对应key相同的所有row
+    if (!rows) {// probe命中一行
+      inputRows[numOut] = row; // NOLINT ，如果只有一行，将hit和row填充到参数结果中，递增一行
       hits[numOut] = hit;
       numOut++;
       iter.lastRowIndex++;
@@ -1879,17 +1879,17 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
           ? iter.estimatedRowSize.value()
           : (joinProjectedVarColumnsSize(iter.varSizeListColumns, hit) +
              iter.fixedSizeListColumnsSizeSum);
-    } else {
+    } else {// probe命中多行
       const auto numRows = rows->size();
       auto num =
           std::min(numRows - iter.lastDuplicateRowIndex, maxOut - numOut);
-      std::fill_n(inputRows.begin() + numOut, num, row);
-      std::memcpy(
+      std::fill_n(inputRows.begin() + numOut, num, row);// 这些相同key的行都对应一个input row
+      std::memcpy(// 将这些行填充到hits中
           hits.data() + numOut,
           rows->data() + iter.lastDuplicateRowIndex,
           num * sizeof(char*));
       iter.lastDuplicateRowIndex += num;
-      numOut += num;
+      numOut += num;// 更新对应的结果行数
       if (iter.estimatedRowSize.has_value()) {
         totalBytes += iter.estimatedRowSize.value() * numRows;
       } else {
@@ -2204,7 +2204,7 @@ void populateLookupRows(
     std::iota(lookupRows.begin(), lookupRows.end(), 0);
   } else {
     lookupRows.clear();
-    rows.applyToSelected([&](auto row) { lookupRows.push_back(row); });
+    rows.applyToSelected([&](auto row) { lookupRows.push_back(row); });// 仅保存未过滤的row
   }
 }
 } // namespace

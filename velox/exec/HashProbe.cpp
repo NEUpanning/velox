@@ -62,13 +62,13 @@ namespace {
 // 'result'. Reuses 'result' children where possible.
 void extractColumns(
     BaseHashTable* table,
-    folly::Range<char* const*> rows,
+    folly::Range<char* const*> rows,// 代表build表命中的行
     folly::Range<const IdentityProjection*> projections,
     memory::MemoryPool* pool,
     const std::vector<TypePtr>& resultTypes,
     std::vector<VectorPtr>& resultVectors) {
   VELOX_CHECK_EQ(resultTypes.size(), resultVectors.size());
-  for (auto projection : projections) {
+  for (auto projection : projections) { // build表被project的每一列都要写到结果
     const auto resultChannel = projection.outputChannel;
     VELOX_CHECK_LT(resultChannel, resultVectors.size());
 
@@ -677,14 +677,14 @@ void HashProbe::addInput(RowVectorPtr input) {
   if (numInput > 0) {
     noInput_ = false;
   }
-
+// dynamic filter pushed down情况无需执行join逻辑
   if (canReplaceWithDynamicFilter_) {
     replacedWithDynamicFilter_ = true;
     return;
   }
 
   bool hasDecoded = false;
-
+// spill 逻辑
   if (needToSpillInput()) {
     if (isRightSemiProjectJoin(joinType_) && !probeSideHasNullKeys_) {
       decodeAndDetectNonNullKeys();
@@ -697,9 +697,9 @@ void HashProbe::addInput(RowVectorPtr input) {
       return;
     }
   }
-
+// 判断hash table是否为空
   if (table_->numDistinct() == 0) {
-    if (skipProbeOnEmptyBuild()) {
+    if (skipProbeOnEmptyBuild()) {// 对于一些join类型，build表为空则不需要执行join逻辑
       VELOX_CHECK(needToSpillInput());
       input_ = nullptr;
       return;
@@ -721,7 +721,7 @@ void HashProbe::addInput(RowVectorPtr input) {
   if (!hasDecoded) {
     decodeAndDetectNonNullKeys();
   }
-  activeRows_ = nonNullInputRows_;
+  activeRows_ = nonNullInputRows_;// join key不是NULL的行，其他的不会join
 
   // Update statistics for null keys in join operator.
   // Updating here means we will report 0 null keys when build side is empty.
@@ -733,9 +733,9 @@ void HashProbe::addInput(RowVectorPtr input) {
     lockedStats->numNullKeys +=
         activeRows_.size() - activeRows_.countSelected();
   }
-
+//Populates 'hashes' and 'rows' fields in 'lookup'，loopup之前的数据会被清空
   table_->prepareForJoinProbe(*lookup_.get(), input_, activeRows_, false);
-
+// left 没匹配上也保留的情况
   if (joinIncludesMissesFromLeft(joinType_)) {
     // Make sure to allocate an entry in 'hits' for every input row to allow for
     // including rows without a match in the output. Also, make sure to
@@ -754,15 +754,15 @@ void HashProbe::addInput(RowVectorPtr input) {
     rows.resize(numInput);
     std::iota(rows.begin(), rows.end(), 0);
   } else {
-    if (lookup_->rows.empty()) {
+    if (lookup_->rows.empty()) {// 没有可用数据直接退出
       input_ = nullptr;
       return;
     }
-    lookup_->hits.resize(lookup_->rows.back() + 1);
-    table_->joinProbe(*lookup_);
+    lookup_->hits.resize(lookup_->rows.back() + 1);// 调整保存rows对应hits（也就是hash table中的entry）的数组大小
+    table_->joinProbe(*lookup_);// 执行probe操作，将每行数据第一个匹配的entry保存到hits中
   }
 
-  resultIter_->reset(*lookup_);
+  resultIter_->reset(*lookup_);// 将lookup_中的rows和hits保存到resultIter_中
 }
 
 void HashProbe::prepareOutput(vector_size_t size) {
@@ -839,7 +839,7 @@ void HashProbe::fillOutput(vector_size_t size) {
     // safe to wrap unloaded LazyVector into two different dictionaries.
     ensureLoadedIfNotAtEnd(in);
     auto inputChild = input_->childAt(in);
-    output_->childAt(out) = wrapChild(size, outputRowMapping_, inputChild);
+    output_->childAt(out) = wrapChild(size, outputRowMapping_, inputChild);// 使用dictionary vector表示probe side rows,outputRowMapping_为indices，inputChild就是表数据
   }
 
   if (isLeftSemiProjectJoin(joinType_)) {
@@ -1010,10 +1010,10 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
   if (maybeReadSpillOutput()) {
     return output_;
   }
-
+// 清空output_
   clearProjectedOutput();
 
-  if (!input_) {
+  if (!input_) {// 当上一个Input被处理完成才会为空，仅addinput不会
     if (hasMoreInput()) {
       return nullptr;
     }
@@ -1069,7 +1069,7 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
   auto outputBatchSize = (isLeftSemiOrAntiJoinNoFilter || emptyBuildSide)
       ? inputSize
       : outputBatchSize_;
-  outputTableRowsCapacity_ = outputBatchSize;
+  outputTableRowsCapacity_ = outputBatchSize;// 结果的行数
   if (filter_ &&
       (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
        isAntiJoin(joinType_) || isLeftSemiFilterJoin(joinType_) ||
@@ -1080,8 +1080,8 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
     ++outputTableRowsCapacity_;
   }
   auto mapping = initializeRowNumberMapping(
-      outputRowMapping_, outputTableRowsCapacity_, pool());
-  auto* outputTableRows =
+      outputRowMapping_, outputTableRowsCapacity_, pool());// output row(array index) -> row number in input_
+  auto* outputTableRows =// build table中命中的row
       initBuffer<char*>(outputTableRows_, outputTableRowsCapacity_, pool());
 
   for (;;) {
