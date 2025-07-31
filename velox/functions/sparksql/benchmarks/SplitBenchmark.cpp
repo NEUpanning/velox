@@ -28,8 +28,7 @@ namespace {
 
 class SplitBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
-  SplitBenchmark(uint32_t seed)
-      : FunctionBenchmarkBase(), seed_{seed} {
+  SplitBenchmark(uint32_t seed) : FunctionBenchmarkBase(), seed_{seed} {
     parse::registerTypeResolver();
     functions::sparksql::registerFunctions("");
     generateData();
@@ -52,7 +51,9 @@ class SplitBenchmark : public functions::test::FunctionBenchmarkBase {
     data_ = vectorMaker_.rowVector({evaluateOnce(kConcatExpression, vector)});
   }
 
-  VectorPtr evaluateOnce(const std::string& expression, const RowVectorPtr& data) {
+  VectorPtr evaluateOnce(
+      const std::string& expression,
+      const RowVectorPtr& data) {
     auto exprSet = compileExpression(expression, asRowType(data->type()));
     return evaluate(exprSet, data);
   }
@@ -98,7 +99,7 @@ BENCHMARK_RELATIVE(split, n) {
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
-  memory::MemoryManager::initialize({});
+  memory::MemoryManager::initialize(memory::MemoryManager::Options{});
   LOG(ERROR) << "Seed: " << seed;
   benchmark = std::make_unique<SplitBenchmark>(seed);
   folly::runBenchmarks();

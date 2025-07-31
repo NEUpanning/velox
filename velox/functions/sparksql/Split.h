@@ -136,7 +136,7 @@ struct Split {
     }
   }
 
-  // fast path if the delimiter is a
+  // Fast path if the delimiter is a
   // (1)one-char String and this character is not one of the RegEx's meta
   // characters ".$|()[{^?*+\\", or
   // (2)two-char String and the first char is the backslash and the second is
