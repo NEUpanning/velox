@@ -474,7 +474,7 @@ VectorPtr deserializeFixedWidth(
     if (isNull) {
       flatVector->setNull(i, true);
     } else {
-      readFixedWidthValue<T>(data[i] + offsets[i], rawValues, i);
+      readFixedWidthValue<T>(data[i] + offsets[i], rawValues, i);// 将值保存到vector
     }
     offsets[i] += kFieldWidth;
   }
@@ -555,16 +555,16 @@ VectorPtr deserializeFixedWidthArrays(
   vector_size_t index = 0;
 
   for (auto i = 0; i < numRows; ++i) {
-    const auto size = rawSizes[i];
+    const auto size = rawSizes[i];// array中elements数量
     if (size > 0) {
       auto nullBytes = alignBits(size);
 
       auto* rawElementNulls =
-          readNulls(data[i] + arrayStartOffsets[i] + arrayDataOffsets[i]);
+          readNulls(data[i] + arrayStartOffsets[i] + arrayDataOffsets[i]);// 从array format的头确定element是否为null
 
       arrayDataOffsets[i] += nullBytes;
 
-      for (auto j = 0; j < size; ++j, index++) {
+      for (auto j = 0; j < size; ++j, index++) {// 解析出所有的element，写入到flatVector
         if (bits::isBitSet(rawElementNulls, j)) {
           flatVector->setNull(index, true);
         } else {
@@ -869,9 +869,9 @@ enum class DeserializeArrayType {
 };
 
 // Deserializes one array from each 'row' in 'data'.
-// Array format is:
-// [numElements][null bits][values or offset&length][variable length portion]
-template <DeserializeArrayType DeserializeType = DeserializeArrayType::ARRAY>
+// Array format is(element按照unsafe row进行序列化):
+// [numElements][null bits][values or offset&length][variable length portion] // 如果元素是定长，[numElements][null bits][element1(8bytes)][element2(8bytes)]
+template <DeserializeArrayType DeserializeType = DeserializeArrayType::ARRAY>// 如果元素是变长，[numElements][null bits][element1's size&offset(8bytes)][element2's size&offset(8bytes)][variable length portion]
 ArrayVectorPtr deserializeArrays(
     const TypePtr& type,
     const std::vector<char*>& data,
@@ -901,9 +901,9 @@ ArrayVectorPtr deserializeArrays(
         const auto keyArraySize = readInt64(data[i]);
         arrayStartOffsets[i] += sizeof(int64_t) + keyArraySize;
       }
-      vector_size_t numElements = readInt64(data[i] + arrayStartOffsets[i]);
-      arrayDataOffsets[i] += sizeof(int64_t);
-
+      vector_size_t numElements = readInt64(data[i] + arrayStartOffsets[i]);// 读取array size也就是numElements
+      arrayDataOffsets[i] += sizeof(int64_t);// 跳过8bytes的array size
+// 更新结果vector的offset和size
       rawArrayOffsets[i] = arrayOffset;
       rawArraySizes[i] = numElements;
       arrayOffset += numElements;
@@ -1012,12 +1012,12 @@ VectorPtr deserialize(
     return deserializeUnknowns(type, data, nulls, offsets, pool);
   }
 
-  if (isFixedWidth(type)) {
+  if (isFixedWidth(type)) {// 固定长度类型的处理方式相同
     return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         deserializeFixedWidth, typeKind, type, data, nulls, offsets, pool);
   }
 
-  switch (typeKind) {
+  switch (typeKind) {// 变长类型的处理
     case TypeKind::HUGEINT:
       return deserializeLongDecimal(type, data, nulls, offsets, pool);
     case TypeKind::VARCHAR:
@@ -1082,7 +1082,7 @@ RowVectorPtr deserializeRows(
     if (!child->isPrimitiveType()) {
       std::vector<char*> nestedData(numRows);
       std::vector<size_t> nestedOffsets(numRows, 0);
-      for (auto row = 0; row < numRows; ++row) {
+      for (auto row = 0; row < numRows; ++row) {// 调整每行数据的offset到存储数据值的位置
         const auto isTopLevelNull = rawNulls && bits::isBitNull(rawNulls, row);
         if (!isTopLevelNull) {
           const auto offset =
