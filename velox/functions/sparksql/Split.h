@@ -84,7 +84,8 @@ struct Split {
     }
   }
 
-  // Octal escaped character in the form \000.
+  // Checks if a string represents an octal-escaped ascii character (e.g.,
+  // \123). If valid, converts it to its decimal value.
   bool isOctalString(const char* str, char& decimal, size_t size) const {
     if (size > 4 || str[0] != '\\') {
       return false;
@@ -95,8 +96,8 @@ struct Split {
         return false;
       }
     }
-    // Octal value must be less than 377.
-    if (std::stoi(str + 1) > 377) {
+    // The ascii octal number should not exceed 177.
+    if (std::stoi(str + 1) > 177) {
       return false;
     }
     decimal = std::stoi(str + 1, nullptr, 8);
@@ -145,17 +146,18 @@ struct Split {
   void initializeFastPath(const char* delimiterStr, size_t delimiterSize) {
     const std::string reservedChars = ".$|()[{^?*+\\";
     if (delimiterSize == 1) {
-      ch_ = delimiterStr[0];
-      if (reservedChars.find(ch_) == std::string::npos) {
+      singleCharDelimiter_ = delimiterStr[0];
+      if (reservedChars.find(singleCharDelimiter_) == std::string::npos) {
         fastPath_ = true;
       }
     } else if (delimiterSize == 2 && delimiterStr[0] == '\\') {
-      ch_ = delimiterStr[1];
-      if (((ch_ - '0') | ('9' - ch_)) < 0 && ((ch_ - 'a') | ('z' - ch_)) < 0 &&
-          ((ch_ - 'A') | ('Z' - ch_)) < 0) {
+      singleCharDelimiter_ = delimiterStr[1];
+      if (!std::isdigit(singleCharDelimiter_) &&
+          !std::isalpha(singleCharDelimiter_)) {
         fastPath_ = true;
       }
-    } else if (isOctalString(delimiterStr, ch_, delimiterSize)) {
+    } else if (isOctalString(
+                   delimiterStr, singleCharDelimiter_, delimiterSize)) {
       fastPath_ = true;
     } else {
       fastPath_ = false;
@@ -193,7 +195,7 @@ struct Split {
 
     if (fastPath_) {
       for (size_t i = 0; i < end; ++i) {
-        if (start[i] == ch_) {
+        if (start[i] == singleCharDelimiter_) {
           result.add_item().setNoCopy(StringView(start + pos, i - pos));
           pos = i + 1;
           ++addedElements;
@@ -256,7 +258,8 @@ struct Split {
 
   mutable facebook::velox::functions::detail::ReCache cache_;
   bool fastPath_{false};
-  char ch_;
+  // Single character delimiter for fast path.
+  char singleCharDelimiter_;
   bool isConstantDelimiter_{false};
 };
 } // namespace facebook::velox::functions::sparksql
