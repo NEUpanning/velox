@@ -42,7 +42,7 @@ class SplitTest : public SparkFunctionBaseTest {
       result = evaluate("split(c0, c1)", input);
     }
     assertEqualVectors(expectedResult, result);
-  };
+  }
 
   void testSplitConstantDelim(
       const std::vector<std::string>& input,
@@ -62,7 +62,7 @@ class SplitTest : public SparkFunctionBaseTest {
       result = evaluate("split(c0, '" + delim + "')", input);
     }
     assertEqualVectors(expectedResult, result);
-  };
+  }
 };
 
 TEST_F(SplitTest, basic) {
