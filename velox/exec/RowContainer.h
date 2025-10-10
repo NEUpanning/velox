@@ -1487,7 +1487,7 @@ class RowContainer {
   const bool isJoinBuild_;
   // True if normalized keys are enabled in initial state.
   const bool hasNormalizedKeys_;
-
+  // 存储row中变长的部分
   const std::unique_ptr<HashStringAllocator> stringAllocator_;
 
   // Indicates if we can add new row to this row container. It is set to false

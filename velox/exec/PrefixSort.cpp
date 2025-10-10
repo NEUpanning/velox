@@ -282,7 +282,7 @@ PrefixSort::PrefixSort(
 
 void PrefixSort::extractRowAndEncodePrefixKeys(char* row, char* prefixBuffer) {
   for (auto i = 0; i < sortLayout_.numNormalizedKeys; ++i) {
-    extractRowColumnToPrefix(
+    extractRowColumnToPrefix( // 这里会反转字节顺序，因为小端序时数据的最低有效字节（最右端的字节）存放在内存的最低地址处。这意味着字节按照从低位到高位的顺序存储，直接按字节比较有问题。
         rowContainer_->keyTypes()[i]->kind(),
         sortLayout_,
         i,
@@ -303,6 +303,10 @@ void PrefixSort::extractRowAndEncodePrefixKeys(char* row, char* prefixBuffer) {
   // Use uint64_t compare to implement the above-mentioned comparison of every 8
   // bytes, assuming the system is little-endian, need to reverse bytes for
   // every 8 bytes.
+  // 因为需要以8字节（对齐大小）为单位进行比较，需要按8字节进行反转。例如两个int32的key，key1=0x1234,
+  // key2=0x5678, 小端序内存存储为key1: 34 12  key2: 78 56
+  // 经过285行的反转后为key1: 12 34 key2: 56 78，如果直接按8字节比较会转换为
+  //  56 78 12 34，因此需要按8字节反转
   bitsSwapByWord((uint64_t*)prefixBuffer, sortLayout_.normalizedBufferSize);
 
   // Set row address.

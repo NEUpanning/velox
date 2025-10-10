@@ -96,7 +96,7 @@ bool SpillerBase::fillSpillRuns(RowContainerIterator* iterator) {
     // Number of rows to hash and divide into spill partitions at a time.
     constexpr int32_t kHashBatchSize = 4096;
     std::vector<uint64_t> hashes(kHashBatchSize);
-    std::vector<char*> rows(kHashBatchSize);
+    std::vector<char*> rows(kHashBatchSize); // rows to spill
     const bool isSinglePartition = bits_.numPartitions() == 1;
 
     uint64_t totalRows{0};
@@ -204,10 +204,10 @@ std::unique_ptr<SpillerBase::SpillStatus> SpillerBase::writeSpill(
   RowVectorPtr spillVector;
   auto& run = spillRuns_.at(id);
   try {
-    ensureSorted(run);
+    ensureSorted(run);// 使用prefix sort 或者 timsort将row container中的rows排序
     size_t written = 0;
     while (written < run.rows.size()) {
-      extractSpillVector(
+      extractSpillVector(// 将row container中的row 填充到spillVector中
           run.rows, kTargetBatchRows, kTargetBatchBytes, spillVector, written);
       state_.appendToPartition(id, spillVector);
     }

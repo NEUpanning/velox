@@ -263,7 +263,7 @@ class SpillWriter : public SpillWriterBase {
 
   VectorSerde* const serde_;
 
-  std::unique_ptr<VectorStreamGroup> batch_;
+  std::unique_ptr<VectorStreamGroup> batch_;// 用于序列化数据并flush到OutputStream
 };
 
 /// Represents a spill file for read which turns the serialized spilled data

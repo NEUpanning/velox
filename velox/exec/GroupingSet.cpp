@@ -1010,13 +1010,13 @@ void GroupingSet::spill() {
     return;
   }
 
-  auto* rows = table_->rows();
+  auto* rows = table_->rows(); // hash table 对应的 row container
   VELOX_CHECK_NULL(outputSpiller_);
   if (inputSpiller_ == nullptr) {
     VELOX_DCHECK(pool_.trackUsage());
     VELOX_CHECK(numDistinctSpillFilesPerPartition_.empty());
     const auto sortingKeys = SpillState::makeSortingKeys(
-        std::vector<CompareFlags>(rows->keyTypes().size()));
+        std::vector<CompareFlags>(rows->keyTypes().size()));// spill sort key为group by keys
     inputSpiller_ = std::make_unique<AggregationInputSpiller>(
         rows,
         makeSpillType(),
@@ -1521,8 +1521,8 @@ std::optional<int64_t> GroupingSet::estimateOutputRowSize() const {
 AggregationInputSpiller::AggregationInputSpiller(
     RowContainer* container,
     RowTypePtr rowType,
-    const HashBitRange& hashBitRange,
-    const std::vector<SpillSortKey>& sortingKeys,
+    const HashBitRange& hashBitRange,// 哈希的位范围，用于计算分区号
+    const std::vector<SpillSortKey>& sortingKeys,// 用于排序spill的数据
     const common::SpillConfig* spillConfig,
     folly::Synchronized<common::SpillStats>* spillStats)
     : SpillerBase(

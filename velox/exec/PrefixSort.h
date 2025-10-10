@@ -37,9 +37,9 @@ struct PrefixSortLayout {
   const uint64_t entrySize;
 
   /// If a sort key supports normalization and can be added to the prefix
-  /// sort buffer, it is called a normalized key.
+  /// sort buffer, it is called a normalized key. 这个是normalized keys的总字节数
   const uint32_t normalizedBufferSize;
-
+  /// normalized keys的个数
   const uint32_t numNormalizedKeys;
 
   /// The num of sort keys include normalized and non-normalized.
@@ -70,7 +70,7 @@ struct PrefixSortLayout {
   /// Sizes of normalized keys.
   const std::vector<uint32_t> encodeSizes;
 
-  /// The encoders for normalized keys.
+  /// The encoders for normalized keys. 包含的信息为bool ascending, bool nullsFirst
   const std::vector<prefixsort::PrefixSortEncoder> encoders;
 
   /// The number of padding bytes to align each prefix encoded row size to 8
@@ -133,12 +133,12 @@ class PrefixSort {
       const velox::common::PrefixSortConfig& config,
       memory::MemoryPool* pool,
       std::vector<char*, memory::StlAllocator<char*>>& rows) {
-    if (rowContainer->numRows() < config.minNumRows) {
+    if (rowContainer->numRows() < config.minNumRows) {// 行数过少使用std sort
       stdSort(rows, rowContainer, compareFlags);
       return;
     }
     const auto sortLayout =
-        generateSortLayout(rowContainer, compareFlags, config);
+        generateSortLayout(rowContainer, compareFlags, config);// layout元数据
     // All keys can not normalize, skip the binary string compare opt.
     // Putting this outside sort-internal helps with stdSort.
     if (!sortLayout.hasNormalizedKeys) {

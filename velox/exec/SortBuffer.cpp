@@ -74,7 +74,7 @@ SortBuffer::SortBuffer(
   }
 
   data_ = std::make_unique<RowContainer>(
-      sortedColumnTypes, nonSortedColumnTypes, pool_);
+      sortedColumnTypes, nonSortedColumnTypes, pool_);// 无accumulator
   spillerStoreType_ =
       ROW(std::move(sortedSpillColumnNames), std::move(sortedSpillColumnTypes));
 }
@@ -88,12 +88,12 @@ void SortBuffer::addInput(const VectorPtr& input) {
       "facebook::velox::exec::SortBuffer::addInput", this);
 
   VELOX_CHECK(!noMoreInput_);
-  ensureInputFits(input);
+  ensureInputFits(input);// 检查rowcontainer剩余空间是否足够容纳input，不足则向pool申请
 
   SelectivityVector allRows(input->size());
   std::vector<char*> rows(input->size());
   for (int row = 0; row < input->size(); ++row) {
-    rows[row] = data_->newRow();
+    rows[row] = data_->newRow();// 为每行数据申请rowcontainer空间
   }
   auto* inputRow = input->as<RowVector>();
   for (const auto& columnProjection : columnMap_) {
@@ -102,7 +102,7 @@ void SortBuffer::addInput(const VectorPtr& input) {
     data_->store(
         decoded,
         folly::Range(rows.data(), input->size()),
-        columnProjection.inputChannel);
+        columnProjection.inputChannel);// 存入rowcontainer
   }
   numInputRows_ += allRows.size();
 }
@@ -123,14 +123,14 @@ void SortBuffer::noMoreInput() {
     return;
   }
 
-  if (inputSpiller_ == nullptr) {
+  if (inputSpiller_ == nullptr) {// 没发生过spill
     VELOX_CHECK_EQ(numInputRows_, data_->numRows());
     updateEstimatedOutputRowSize();
     // Sort the pointers to the rows in RowContainer (data_) instead of sorting
     // the rows.
     sortedRows_.resize(numInputRows_);
     RowContainerIterator iter;
-    data_->listRows(&iter, numInputRows_, sortedRows_.data());
+    data_->listRows(&iter, numInputRows_, sortedRows_.data());// 将rowcontainer中每行数据的起始位置指针放入sortedRows_
     PrefixSort::sort(
         data_.get(), sortCompareFlags_, prefixSortConfig_, pool_, sortedRows_);
   } else {
@@ -406,7 +406,7 @@ void SortBuffer::prepareOutput(vector_size_t batchSize) {
 void SortBuffer::getOutputWithoutSpill() {
   VELOX_DCHECK_EQ(numInputRows_, sortedRows_.size());
   for (const auto& columnProjection : columnMap_) {
-    data_->extractColumn(
+    data_->extractColumn(// 将rowcontainer中的数据按排序后的顺序提取出来
         sortedRows_.data() + numOutputRows_,
         output_->size(),
         columnProjection.inputChannel,
@@ -415,10 +415,10 @@ void SortBuffer::getOutputWithoutSpill() {
   numOutputRows_ += output_->size();
 }
 
+// 发生过spill则使用sort merge读取数据
 void SortBuffer::getOutputWithSpill() {
   VELOX_CHECK_NOT_NULL(spillMerger_);
   VELOX_DCHECK_EQ(sortedRows_.size(), 0);
-
   int32_t outputRow = 0;
   int32_t outputSize = 0;
   bool isEndOfBatch = false;

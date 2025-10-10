@@ -374,7 +374,7 @@ uint32_t FileSpillMergeStream::id() const {
 void FileSpillMergeStream::nextBatch() {
   VELOX_CHECK(!closed_);
   index_ = 0;
-  if (!spillFile_->nextBatch(rowVector_)) {
+  if (!spillFile_->nextBatch(rowVector_)) {// spillFile_反序列化下个batch到vector
     size_ = 0;
     close();
     return;

@@ -156,7 +156,7 @@ class SpillerBase {
   // that one can start reading these back.
   bool finalized_{false};
 
-  SpillState state_;
+  SpillState state_; // 真正用于写入spill数据
 
   // Collects the rows to spill for each partition.
   folly::F14FastMap<SpillPartitionId, SpillRun> spillRuns_;
